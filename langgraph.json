@@ -1,0 +1,9 @@
+{
+  "dependencies": [
+    "."
+  ],
+  "graphs": {
+    "agents": "./agents/pdf_reader_agent.py:agent"
+  },
+  "env": ".env"
+}
