@@ -6,6 +6,7 @@ from langchain_core.messages import HumanMessage
 from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
 from langchain.agents import create_agent
+from langchain.tools import ToolRuntime
 
 # Import our Pydantic models
 from agents.models import CreditCardStatement
@@ -31,7 +32,9 @@ Always be thorough and extract ALL transactions from the document.
 """
 
 @tool
-def list_pdf_files() -> str:
+def list_pdf_files(
+    runtime: ToolRuntime
+) -> str:
     """
     List all PDF files available in the processing directory.
 
