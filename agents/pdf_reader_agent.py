@@ -1,15 +1,19 @@
+import logging
+import uuid
 from pathlib import Path
 
 from dotenv import load_dotenv
+from langgraph.checkpoint.memory import InMemorySaver
 from langchain_community.document_loaders import PyPDFLoader
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import HumanMessage, ToolMessage
 from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
 from langchain.agents import create_agent
 from langchain.tools import ToolRuntime
+from langgraph.types import Command
 
 # Import our Pydantic models
-from agents.models import CreditCardStatement
+from agents.models import CreditCardStatement, OCRCustomState
 
 load_dotenv()
 
@@ -18,7 +22,7 @@ PDF_DIRECTORY = Path(__file__).parent.parent / "pdf-to-process"
 SYSTEM_PROMPT = """You are a financial document processing assistant. Your job is to:
 
 1. List available PDF files when asked
-2. Read and parse credit card statements
+2. Read and parse each credit card statements
 3. Extract structured data from statements into a specific format
 
 When extracting transaction data:
@@ -33,31 +37,46 @@ Always be thorough and extract ALL transactions from the document.
 
 @tool
 def list_pdf_files(
-    runtime: ToolRuntime
-) -> str:
+    runtime: ToolRuntime,
+) -> Command:
     """
     List all PDF files available in the processing directory.
 
     Use this tool first to see what files are available before reading them.
     Returns a numbered list of PDF filenames.
     """
+    writer = runtime.stream_writer
+    writer(f"Checking if directory {PDF_DIRECTORY} exists...")
     if not PDF_DIRECTORY.exists():
         return f"Error: Directory {PDF_DIRECTORY} does not exist"
+
+    writer(f"Directory {PDF_DIRECTORY} exists...")
 
     pdf_files = list(PDF_DIRECTORY.glob("*.pdf"))
 
     if not pdf_files:
         return "No PDF files found in the processing directory."
 
+    file_names = [f.name for f in pdf_files]
     # Format as numbered list for easy reference
-    file_list = "\n".join(
-        f"{i + 1}. {f.name}" for i, f in enumerate(pdf_files)
+
+    writer(f"Found {len(pdf_files)} PDF files in {PDF_DIRECTORY}...")
+    return Command(
+        update={
+            "messages": [
+                ToolMessage(
+                    content=f"{len(file_names)} Files Found",
+                    tool_call_id=runtime.tool_call_id
+                )],
+            "files_to_process": file_names
+        }
     )
-    return f"Available PDF files:\n{file_list}"
 
 
 @tool
-def read_pdf_content(filename: str) -> str:
+def read_pdf_content(
+    runtime: ToolRuntime,
+) -> Command:
     """
     Read and extract text content from a PDF file.
 
@@ -69,27 +88,54 @@ def read_pdf_content(filename: str) -> str:
 
     Use this after list_pdf_files() to read a specific document.
     """
-    file_path = PDF_DIRECTORY / filename
+    writer = runtime.stream_writer
+    state = runtime.state
+    files_to_process = state.get("files_to_process", [])
+    message = ToolMessage(
+        content="All files processed.",
+        tool_call_id=runtime.tool_call_id
+    )
+    for filename in files_to_process:
+        file_path = PDF_DIRECTORY / filename
 
-    if not file_path.exists():
-        return f"Error: File '{filename}' not found in {PDF_DIRECTORY}"
+        if not file_path.exists():
+            return f"Error: File '{filename}' not found in {PDF_DIRECTORY}"
 
-    if not filename.lower().endswith(".pdf"):
-        return "Error: File must be a PDF"
+        if not filename.lower().endswith(".pdf"):
+            return "Error: File must be a PDF"
+        try:
+            loader = PyPDFLoader(str(file_path))
+            documents = loader.load()
 
-    try:
-        loader = PyPDFLoader(str(file_path))
-        documents = loader.load()
+            # Combine all pages with page markers
+            content_parts = []
+            for i, doc in enumerate(documents, 1):
+                content_parts.append(f"--- Page {i} ---\n{doc.page_content}")
 
-        # Combine all pages with page markers
-        content_parts = []
-        for i, doc in enumerate(documents, 1):
-            content_parts.append(f"--- Page {i} ---\n{doc.page_content}")
+            pdf_content= "\n\n".join(content_parts)
+            try:
+                structured_data = extract_structured_data(pdf_content)
+                with open(filename.lower().replace(".pdf", ".json"), "w") as json_file:
+                    json_file.write(structured_data.model_dump_json(indent=4))
+                writer(f"Successfully extracted structured data from {file_path}")
+            except Exception:
+                logging.exception(f"Extraction error:")
+                message = ToolMessage(
+                    content=f"Unable to get extructured data from file {filename}",
+                    tool_call_id=runtime.tool_call_id
+                )
+        except Exception as e:
+            logging.exception(f"Error reading PDF: {str(e)}")
+            message = ToolMessage(
+                content=f"Unable to get extructured data from file {filename}",
+                tool_call_id=runtime.tool_call_id
+            )
 
-        return "\n\n".join(content_parts)
-
-    except Exception as e:
-        return f"Error reading PDF: {str(e)}"
+    return Command(
+        update={
+            "messages": [message]
+        }
+    )
 
 
 model = ChatOpenAI(
@@ -101,6 +147,8 @@ agent = create_agent(
     model=model,
     tools=[list_pdf_files, read_pdf_content],
     system_prompt=SYSTEM_PROMPT,
+    checkpointer=InMemorySaver(),
+    state_schema=OCRCustomState,
 )
 
 def extract_structured_data(pdf_content: str) -> CreditCardStatement:
@@ -168,9 +216,10 @@ def process_statement(user_request: str) -> dict:
         Dict with 'agent_response', 'structured_data', and 'raw_content'
     """
     # Step 1: Run the agent to get the PDF content
-    result = agent.invoke({
-        "messages": [HumanMessage(content=user_request)]
-    })
+    result = agent.invoke(
+        {"messages": [HumanMessage(content=user_request)]},
+        {"configurable": {"thread_id": str(uuid.uuid4())}},
+    )
 
     # Get the last message (agent's final response)
     agent_response = result["messages"][-1].content
@@ -207,15 +256,20 @@ if __name__ == "__main__":
     print("=" * 60)
 
     # Process a request
-    result = process_statement(
-        "Please list the available PDFs and then read the credit card statement"
+    # result = process_statement(
+    #     "Please list the available PDFs and then read the credit card statement"
+    # )
+    user_request = "Please list the available PDFs and then read all credit card statements"
+    result = agent.invoke(
+        {"messages": [HumanMessage(content=user_request)]},
+        {"configurable": {"thread_id": str(uuid.uuid4())}},
     )
+    logging.warning(result["messages"][-1].content)
 
-
-    if result["structured_data"]:
-        print("\n--- Extracted Structured Data (JSON) ---")
-        statement = result["structured_data"]
-
-        # Convert Pydantic model to JSON string
-        json_output = statement.model_dump_json(indent=2)
-        print(json_output)
+    # if result["structured_data"]:
+    #     print("\n--- Extracted Structured Data (JSON) ---")
+    #     statement = result["structured_data"]
+    #
+    #     # Convert Pydantic model to JSON string
+    #     json_output = statement.model_dump_json(indent=2)
+    #     print(json_output)

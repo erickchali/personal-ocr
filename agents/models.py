@@ -12,6 +12,8 @@ from datetime import date, datetime
 from decimal import Decimal
 from enum import Enum
 from typing import Annotated, Optional
+
+from langchain.agents import AgentState
 from pydantic import BaseModel, Field, BeforeValidator
 
 
@@ -30,6 +32,10 @@ def parse_guatemalan_date(value: str | date) -> date:
 
 
 GuatemalanDate = Annotated[date, BeforeValidator(parse_guatemalan_date)]
+
+
+class OCRCustomState(AgentState):
+    files_to_process: Optional[list[str]] = []
 
 
 class Currency(str, Enum):
