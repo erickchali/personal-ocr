@@ -79,9 +79,9 @@ class Transaction(BaseModel):
     transaction_type: TransactionType = Field(
         description="Type of transaction: purchase, payment, installment, credit, fee, or interest"
     )
-    card_holder: Optional[str] = Field(
+    credit_card_reference: Optional[str] = Field(
         default=None,
-        description="Name of the card holder if this is an additional card"
+        description="Masked card number from the SUB TOTAL row (e.g., 'XXXXXX 3251'). Each transaction inherits the card reference from the subtotal row that follows its group."
     )
 
     class Config:

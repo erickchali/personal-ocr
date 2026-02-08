@@ -3,6 +3,7 @@ import uuid
 from pathlib import Path
 
 from dotenv import load_dotenv
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.checkpoint.memory import InMemorySaver
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_core.messages import HumanMessage, ToolMessage
@@ -14,6 +15,7 @@ from langgraph.types import Command
 
 # Import our Pydantic models
 from agents.models import CreditCardStatement, OCRCustomState
+from db.cruds import save_statement, statement_exists
 
 load_dotenv()
 
@@ -65,7 +67,7 @@ def list_pdf_files(
         update={
             "messages": [
                 ToolMessage(
-                    content=f"{len(file_names)} Files Found",
+                    content=f"{len(file_names)} Files Found, please proceed to read and process all files",
                     tool_call_id=runtime.tool_call_id
                 )],
             "files_to_process": file_names
@@ -78,10 +80,7 @@ def read_pdf_content(
     runtime: ToolRuntime,
 ) -> Command:
     """
-    Read and extract text content from a PDF file.
-
-    Args:
-        filename: The name of the PDF file to read (just the filename, not full path)
+    Read and extract text content from all pdf files in the pre-defined directory.
 
     Returns:
         The extracted text content from all pages of the PDF.
@@ -97,7 +96,7 @@ def read_pdf_content(
     )
     for filename in files_to_process:
         file_path = PDF_DIRECTORY / filename
-
+        logging.info(f"Processing {filename.upper()}.txt")
         if not file_path.exists():
             return f"Error: File '{filename}' not found in {PDF_DIRECTORY}"
 
@@ -113,10 +112,25 @@ def read_pdf_content(
                 content_parts.append(f"--- Page {i} ---\n{doc.page_content}")
 
             pdf_content= "\n\n".join(content_parts)
+            # with open(PDF_DIRECTORY / filename.lower().replace(".pdf", ".txt"), "w") as text_file:
+            #     logging.info(f"Writing extracted text content to {filename.upper()}.txt")
+            #     text_file.write(pdf_content)
             try:
                 structured_data = extract_structured_data(pdf_content)
-                with open(filename.lower().replace(".pdf", ".json"), "w") as json_file:
-                    json_file.write(structured_data.model_dump_json(indent=4))
+                # with open(PDF_DIRECTORY/filename.lower().replace(".pdf", ".json"), "w") as json_file:
+                #     json_file.write(structured_data.model_dump_json(indent=4))
+
+                # Save to database (skip if already exists)
+                if not statement_exists(
+                    structured_data.summary.card_number_masked,
+                    structured_data.summary.cut_off_date
+                ):
+                    statement_id = save_statement(structured_data)
+                    logging.info(f"saving statement  {filename.upper()} to Database")
+                    writer(f"Saved statement {statement_id} to database")
+                else:
+                    writer(f"Statement already exists in database, skipping")
+
                 writer(f"Successfully extracted structured data from {file_path}")
             except Exception:
                 logging.exception(f"Extraction error:")
@@ -138,9 +152,13 @@ def read_pdf_content(
     )
 
 
-model = ChatOpenAI(
-    model="gpt-4.1",
-    temperature=0,
+# model = ChatOpenAI(
+#     model="gpt-5-mini",
+#     temperature=0,
+# )
+model = ChatGoogleGenerativeAI(
+    model="gemini-2.5-flash",
+    max_retries=2,
 )
 
 agent = create_agent(
@@ -183,6 +201,15 @@ For transaction_type, use:
 - "payment" for payments made (GRACIAS POR SU PAGO)
 - "installment" for Cuotas
 - "credit" for cashback/rewards (ByMastercard PedidosY)
+
+IMPORTANT - For credit_card_reference field:
+Transactions are grouped by card, and each group ends with a "SUB TOTAL XXXXXX XXXX" row.
+- Look for "SUB TOTAL XXXXXX XXXX" rows (e.g., "SUB TOTAL XXXXXX 3251", "SUB TOTAL XXXXXX 3269")
+- ALL transactions BEFORE a subtotal row should have that card reference (e.g., "XXXXXX 3251")
+- This pattern repeats for each section: GTQ transactions, USD transactions, installments (Cuotas)
+- For "OTROS CARGOS" (other charges), credit_card_reference can be null
+
+Example: If you see transactions followed by "SUB TOTAL XXXXXX 3251", then another set of transactions followed by "SUB TOTAL XXXXXX 3269", the first group gets "XXXXXX 3251" and the second group gets "XXXXXX 3269".
 
 Statement content:
 {content}
