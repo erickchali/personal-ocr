@@ -3,14 +3,12 @@ import uuid
 from pathlib import Path
 
 from dotenv import load_dotenv
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langgraph.checkpoint.memory import InMemorySaver
+from langchain.agents import create_agent
+from langchain.tools import ToolRuntime
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_core.messages import HumanMessage, ToolMessage
 from langchain_core.tools import tool
-from langchain_openai import ChatOpenAI
-from langchain.agents import create_agent
-from langchain.tools import ToolRuntime
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.types import Command
 
 # Import our Pydantic models
@@ -36,6 +34,7 @@ When extracting transaction data:
 
 Always be thorough and extract ALL transactions from the document.
 """
+
 
 @tool
 def list_pdf_files(
@@ -67,10 +66,14 @@ def list_pdf_files(
         update={
             "messages": [
                 ToolMessage(
-                    content=f"{len(file_names)} Files Found, please proceed to read and process all files",
-                    tool_call_id=runtime.tool_call_id
-                )],
-            "files_to_process": file_names
+                    content=(
+                        f"{len(file_names)} Files Found, "
+                        "please proceed to read and process all files"
+                    ),
+                    tool_call_id=runtime.tool_call_id,
+                )
+            ],
+            "files_to_process": file_names,
         }
     )
 
@@ -90,10 +93,7 @@ def read_pdf_content(
     writer = runtime.stream_writer
     state = runtime.state
     files_to_process = state.get("files_to_process", [])
-    message = ToolMessage(
-        content="All files processed.",
-        tool_call_id=runtime.tool_call_id
-    )
+    message = ToolMessage(content="All files processed.", tool_call_id=runtime.tool_call_id)
     for filename in files_to_process:
         file_path = PDF_DIRECTORY / filename
         logging.info(f"Processing {filename.upper()}.txt")
@@ -111,45 +111,42 @@ def read_pdf_content(
             for i, doc in enumerate(documents, 1):
                 content_parts.append(f"--- Page {i} ---\n{doc.page_content}")
 
-            pdf_content= "\n\n".join(content_parts)
+            pdf_content = "\n\n".join(content_parts)
             # with open(PDF_DIRECTORY / filename.lower().replace(".pdf", ".txt"), "w") as text_file:
             #     logging.info(f"Writing extracted text content to {filename.upper()}.txt")
             #     text_file.write(pdf_content)
             try:
                 structured_data = extract_structured_data(pdf_content)
-                # with open(PDF_DIRECTORY/filename.lower().replace(".pdf", ".json"), "w") as json_file:
+                # with open(
+                #     PDF_DIRECTORY / filename.lower().replace(".pdf", ".json"), "w"
+                # ) as json_file:
                 #     json_file.write(structured_data.model_dump_json(indent=4))
 
                 # Save to database (skip if already exists)
                 if not statement_exists(
-                    structured_data.summary.card_number_masked,
-                    structured_data.summary.cut_off_date
+                    structured_data.summary.card_number_masked, structured_data.summary.cut_off_date
                 ):
                     statement_id = save_statement(structured_data)
                     logging.info(f"saving statement  {filename.upper()} to Database")
                     writer(f"Saved statement {statement_id} to database")
                 else:
-                    writer(f"Statement already exists in database, skipping")
+                    writer("Statement already exists in database, skipping")
 
                 writer(f"Successfully extracted structured data from {file_path}")
             except Exception:
-                logging.exception(f"Extraction error:")
+                logging.exception("Extraction error:")
                 message = ToolMessage(
                     content=f"Unable to get extructured data from file {filename}",
-                    tool_call_id=runtime.tool_call_id
+                    tool_call_id=runtime.tool_call_id,
                 )
         except Exception as e:
             logging.exception(f"Error reading PDF: {str(e)}")
             message = ToolMessage(
                 content=f"Unable to get extructured data from file {filename}",
-                tool_call_id=runtime.tool_call_id
+                tool_call_id=runtime.tool_call_id,
             )
 
-    return Command(
-        update={
-            "messages": [message]
-        }
-    )
+    return Command(update={"messages": [message]})
 
 
 # model = ChatOpenAI(
@@ -165,9 +162,9 @@ agent = create_agent(
     model=model,
     tools=[list_pdf_files, read_pdf_content],
     system_prompt=SYSTEM_PROMPT,
-    checkpointer=InMemorySaver(),
     state_schema=OCRCustomState,
 )
+
 
 def extract_structured_data(pdf_content: str) -> CreditCardStatement:
     """
@@ -209,16 +206,16 @@ Transactions are grouped by card, and each group ends with a "SUB TOTAL XXXXXX X
 - This pattern repeats for each section: GTQ transactions, USD transactions, installments (Cuotas)
 - For "OTROS CARGOS" (other charges), credit_card_reference can be null
 
-Example: If you see transactions followed by "SUB TOTAL XXXXXX 3251", then another set of transactions followed by "SUB TOTAL XXXXXX 3269", the first group gets "XXXXXX 3251" and the second group gets "XXXXXX 3269".
+Example: If you see transactions followed by "SUB TOTAL XXXXXX 3251", then another set
+of transactions followed by "SUB TOTAL XXXXXX 3269", the first group gets "XXXXXX 3251"
+and the second group gets "XXXXXX 3269".
 
 Statement content:
 {content}
 """
 
     # The LLM will return a CreditCardStatement object directly
-    result = extraction_model.invoke(
-        extraction_prompt.format(content=pdf_content)
-    )
+    result = extraction_model.invoke(extraction_prompt.format(content=pdf_content))
 
     return result
 
@@ -226,6 +223,7 @@ Statement content:
 # ============================================================================
 # MAIN EXECUTION
 # ============================================================================
+
 
 def process_statement(user_request: str) -> dict:
     """
