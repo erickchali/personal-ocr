@@ -3,7 +3,8 @@
     "."
   ],
   "graphs": {
-    "agents": "./agents/pdf_reader_agent.py:agent"
+    "financial_assistant": "./agents/graph.py:graph",
+    "pdf_reader_agent": "./agents/pdf_reader_agent.py:agent"
   },
   "env": ".env"
 }

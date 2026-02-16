@@ -1,16 +1,27 @@
-# This is a sample Python script.
+from dotenv import load_dotenv
+from langchain_core.messages import HumanMessage
 
-# Press ⌃R to execute it or replace it with your code.
-# Press Double ⇧ to search everywhere for classes, files, tool windows, actions, and settings.
+from agents.graph import graph
 
-
-def print_hi(name):
-    # Use a breakpoint in the code line below to debug your script.
-    print(f'Hi, {name}')  # Press ⌘F8 to toggle the breakpoint.
+load_dotenv()
 
 
-# Press the green button in the gutter to run the script.
-if __name__ == '__main__':
-    print_hi('PyCharm')
+def main():
+    print("Financial Assistant (type 'quit' to exit)")
+    print("-" * 40)
 
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
+    while True:
+        user_input = input("\nYou: ").strip()
+        if not user_input:
+            continue
+        if user_input.lower() in ("quit", "exit", "q"):
+            print("Goodbye!")
+            break
+
+        result = graph.invoke({"messages": [HumanMessage(content=user_input)]})
+        last_message = result["messages"][-1]
+        print(f"\nAssistant: {last_message.content}")
+
+
+if __name__ == "__main__":
+    main()
