@@ -1,424 +1,186 @@
-# Financial Assistant Roadmap
+# Financial Assistant — Roadmap
 
-Transform the PDF processor into a multi-node LangGraph financial assistant.
+Transform the PDF processor into a multi-node LangGraph financial assistant chatbot.
 
 ---
 
-## Phase 1: Foundation - State & Tools
+## How We Work Together
 
-### 1.1 Create State Schema
+1. **I explain** — What we're building, why, and the key concepts
+2. **You write the code** — Using this plan as your guide
+3. **You ask when stuck** — I'll guide you, not just give you the answer
+4. **I review** — Once you have it working, I suggest improvements
+5. **We verify** — Run the verification steps together
+
+---
+
+## Full Roadmap
+
+| Phase | Focus | Status |
+|-------|-------|--------|
+| **0** | CI/CD: Ruff linting + GitHub Actions | Done |
+| **1** | StateGraph skeleton + intent router | Done |
+| **2** | Wire PDF processing into graph nodes | **Current** |
+| **3** | Add query tools for financial data | Pending |
+| **4** | Checkpointing + multi-turn conversation | Pending |
+| **5** | Human-in-the-loop approval | Pending |
+| **6** | Streaming + LangSmith monitoring | Pending |
+| **7** | (Stretch) LangGraph Studio + deployment | Pending |
+
+---
+
+## Phase 0: CI/CD — Done
+
+- Ruff linting/formatting configured in `pyproject.toml`
+- GitHub Actions workflow at `.github/workflows/lint.yml` (runs on PRs to main)
+
+## Phase 1: StateGraph Skeleton — Done
+
+- `agents/graph_state.py` — `FinancialAssistantState` with messages + intent
+- `agents/llm.py` — Configurable LLM factory (Google/OpenAI/Anthropic)
+- `agents/nodes.py` — Router node with structured output, stub nodes, respond node
+- `agents/graph.py` — StateGraph with conditional edges routing by intent
+- `main.py` — Interactive CLI chat loop
+
+---
+
+## Phase 2: Wire PDF Processing Into Graph Nodes (CURRENT)
+
+### What we're building
+
+Replace the `upload_stub_node` with a real multi-step PDF processing flow using **3 new nodes** that each do one thing:
+
+```
+router --("upload")--> list_files --> process_files --> respond --> END
+```
+
+1. **list_files_node** — Scans the `pdf-to-process/` directory and puts filenames into state
+2. **process_files_node** — For each file: reads PDF, extracts structured data with LLM, saves to DB
+3. **respond** — (already exists) Generates a summary response for the user
+
+### Why 3 nodes instead of 1 big node?
+
+- **Separation of concerns**: Each node does ONE job. In production, this lets you retry or replace individual steps.
+- **LangSmith visibility**: Each node appears as a separate span in traces. With one big node, you'd see one blob. With 3 nodes, you can see exactly where time is spent or where errors happen.
+- **State as communication**: Nodes don't call each other directly — they communicate through state. `list_files_node` puts filenames in state, `process_files_node` reads them from state. This is the core LangGraph pattern.
+
+### Why NOT make each file its own separate graph iteration?
+
+For now, we process all files in one `process_files_node` call using a loop. This is simpler and matches what your existing `read_pdf_content` tool already does. In a real production app you might use a [Send API](https://docs.langchain.com/oss/python/langgraph/graph-api) to process files in parallel — but that's an optimization, not a learning priority right now.
+
+### State changes
+
+Your current `FinancialAssistantState` only has `messages` and `intent`. You need to add fields for the PDF processing flow to pass data between nodes.
+
 **File**: `agents/graph_state.py`
 
-```python
-from typing import TypedDict, Optional, Annotated
-from langgraph.graph.message import add_messages
+Add these fields to `FinancialAssistantState`:
+- `pending_files` — list of filenames found in the directory (set by `list_files_node`, read by `process_files_node`)
+- `processed_count` — integer tracking how many files were saved to DB (set by `process_files_node`, read by `respond` for the summary)
 
-class FinancialAssistantState(TypedDict):
-    messages: Annotated[list, add_messages]
-    intent: Optional[str]  # "upload", "query", "both", "chat"
-    pending_files: list[str]
-    current_file: Optional[str]
-    pdf_content: Optional[str]
-    extracted_statement: Optional[dict]
-    saved_statement_ids: list[int]
-    query_result: Optional[str]
-    errors: list[str]
-```
+Think about: what types should these be? Do they need default values? Look at how `intent` is defined for the pattern.
 
-**Concepts to learn**:
-- `TypedDict` for type hints
-- `Annotated` with `add_messages` for automatic message accumulation
-- How LangGraph uses state to pass data between nodes
+### New nodes
 
-**Resources**:
-- https://docs.langchain.com/oss/python/langgraph/overview
-- Search: "langgraph state management"
-
----
-
-### 1.2 Add Query Functions to Database
-**File**: `db/cruds.py`
-
-Add these functions to the existing file:
-
-```python
-def get_transactions_filtered(
-    start_date: str = None,
-    end_date: str = None,
-    currency: str = None,
-    transaction_type: str = None,
-    limit: int = 50
-) -> list[dict]:
-    """Query transactions with optional filters."""
-    # TODO: Build dynamic SQL query based on filters
-    pass
-
-def get_highest_expense(period_months: int = 6) -> dict:
-    """Get the highest expense in given period."""
-    # TODO: Query with ORDER BY amount DESC LIMIT 1
-    pass
-
-def get_spending_by_category(period_months: int = 1) -> list[dict]:
-    """Aggregate spending by transaction_type."""
-    # TODO: GROUP BY transaction_type, SUM(amount)
-    pass
-```
-
-**Concepts to learn**:
-- Dynamic SQL query building
-- Date filtering in SQLite
-- Aggregation queries (GROUP BY, SUM)
-
----
-
-### 1.3 Create Query Tools
-**File**: `agents/tools.py`
-
-```python
-from langchain_core.tools import tool
-from db.cruds import get_transactions_filtered, get_highest_expense, get_spending_by_category
-
-@tool
-def search_transactions(
-    start_date: str = None,
-    end_date: str = None,
-    currency: str = None,
-    limit: int = 10
-) -> str:
-    """Search transactions with filters. Dates in YYYY-MM-DD format."""
-    results = get_transactions_filtered(start_date, end_date, currency, limit=limit)
-    # Format results as string for LLM
-    return str(results)
-
-@tool
-def get_top_expense(months: int = 6) -> str:
-    """Get the highest expense in the last N months."""
-    result = get_highest_expense(months)
-    return f"Highest expense: {result['description']} - {result['amount']} {result['currency']}"
-
-@tool
-def spending_summary(months: int = 1) -> str:
-    """Get spending breakdown by category for last N months."""
-    results = get_spending_by_category(months)
-    return str(results)
-```
-
-**Concepts to learn**:
-- `@tool` decorator from langchain
-- Tool descriptions (LLM uses these to decide when to call)
-- Input/output types for tools
-
----
-
-## Phase 2: Build Nodes
-
-### 2.1 Create Nodes File
 **File**: `agents/nodes.py`
 
-```python
-from langchain_openai import ChatOpenAI
-from langchain_community.document_loaders import PyPDFLoader
-from agents.graph_state import FinancialAssistantState
-from agents.models import CreditCardStatement
-from db.cruds import save_statement, statement_exists
-from pathlib import Path
+#### `list_files_node(state) -> dict`
 
-model = ChatOpenAI(model="gpt-4.1", temperature=0)
-PDF_DIRECTORY = Path(__file__).parent.parent / "pdf-to-process"
+**What it does**: Scans the `pdf-to-process/` directory for `.pdf` files and returns their names.
 
+- Use `pathlib.Path` and `.glob("*.pdf")` — you already have this pattern in `pdf_reader_agent.py:57`
+- Return a state update with the list of filenames in `pending_files`
+- Also return an `AIMessage` telling the user how many files were found (e.g., "Found 2 PDF files to process.")
+- Handle edge case: what if the directory is empty or doesn't exist?
 
-def router_node(state: FinancialAssistantState) -> dict:
-    """Classify user intent from the last message."""
-    # TODO:
-    # 1. Get last user message from state["messages"]
-    # 2. Use LLM to classify intent: "upload", "query", "both", "chat"
-    # 3. Return {"intent": classified_intent}
-    pass
+#### `process_files_node(state) -> dict`
 
+**What it does**: Reads each PDF, extracts structured data with the LLM, and saves to the database.
 
-def process_pdf_node(state: FinancialAssistantState) -> dict:
-    """Read PDF and extract text content."""
-    # TODO:
-    # 1. Get current_file or first file from pending_files
-    # 2. Use PyPDFLoader to extract text
-    # 3. Return {"pdf_content": text, "current_file": filename}
-    pass
+This is where you **reuse your existing code** from `pdf_reader_agent.py`. The logic already exists — you're just moving it into a node function.
 
+- Read `pending_files` from state
+- For each file:
+  - Load PDF with `PyPDFLoader` (see `pdf_reader_agent.py:106-112`)
+  - Call a structured extraction function using `llm.with_structured_output(CreditCardStatement)` (see `pdf_reader_agent.py:172-223`)
+  - Check for duplicates with `statement_exists()` and save with `save_statement()` (see `pdf_reader_agent.py:124-132`)
+- Return state update with `processed_count` and an `AIMessage` summarizing what was processed
+- Handle errors gracefully — if one file fails, continue with the rest
 
-def extract_data_node(state: FinancialAssistantState) -> dict:
-    """Extract structured data from PDF text using LLM."""
-    # TODO:
-    # 1. Get pdf_content from state
-    # 2. Use model.with_structured_output(CreditCardStatement)
-    # 3. Return {"extracted_statement": statement.model_dump()}
-    pass
+**Key decision — where does `extract_structured_data` live?**
+Your existing extraction function is in `pdf_reader_agent.py:172`. You have two choices:
+1. Move it to `nodes.py` — keeps everything together but makes the file longer
+2. Keep it as a utility function in a separate file (e.g., `agents/extraction.py`) — cleaner separation
 
+Either works. Pick whichever makes more sense to you.
 
-def save_to_db_node(state: FinancialAssistantState) -> dict:
-    """Save extracted statement to database."""
-    # TODO:
-    # 1. Get extracted_statement from state
-    # 2. Check if exists with statement_exists()
-    # 3. Call save_statement() if new
-    # 4. Return {"saved_statement_ids": [...]}
-    pass
+### Graph changes
 
-
-def query_node(state: FinancialAssistantState) -> dict:
-    """Answer questions using database tools."""
-    # TODO:
-    # 1. Create agent with query tools
-    # 2. Get user question from messages
-    # 3. Run agent and get response
-    # 4. Return {"query_result": response}
-    pass
-
-
-def respond_node(state: FinancialAssistantState) -> dict:
-    """Generate final response to user."""
-    # TODO:
-    # 1. Check what was done (upload, query, both)
-    # 2. Compose response message
-    # 3. Return {"messages": [AIMessage(content=response)]}
-    pass
-```
-
-**Concepts to learn**:
-- Node functions receive state, return state updates
-- Each node does ONE thing
-- State updates are merged automatically
-
----
-
-## Phase 3: Build the Graph
-
-### 3.1 Create Graph Definition
 **File**: `agents/graph.py`
 
-```python
-from langgraph.graph import StateGraph, START, END
-from agents.graph_state import FinancialAssistantState
-from agents.nodes import (
-    router_node,
-    process_pdf_node,
-    extract_data_node,
-    save_to_db_node,
-    query_node,
-    respond_node,
-)
+- Replace `upload_stub` node with the new `list_files` and `process_files` nodes
+- Wire the edges: `router --("upload")--> list_files --> process_files --> respond --> END`
+- Remove the `upload_stub_node` import
+- The `query_stub` and `respond` paths stay the same
 
-
-def route_by_intent(state: FinancialAssistantState) -> str:
-    """Conditional edge: route based on classified intent."""
-    intent = state.get("intent")
-    if intent == "upload" or intent == "both":
-        return "process_pdf"
-    elif intent == "query":
-        return "query"
-    else:
-        return "respond"
-
-
-def after_save(state: FinancialAssistantState) -> str:
-    """After saving, check if we also need to query."""
-    if state.get("intent") == "both":
-        return "query"
-    return "respond"
-
-
-# Build the graph
-builder = StateGraph(FinancialAssistantState)
-
-# Add nodes
-builder.add_node("router", router_node)
-builder.add_node("process_pdf", process_pdf_node)
-builder.add_node("extract_data", extract_data_node)
-builder.add_node("save_to_db", save_to_db_node)
-builder.add_node("query", query_node)
-builder.add_node("respond", respond_node)
-
-# Add edges
-builder.add_edge(START, "router")
-builder.add_conditional_edges("router", route_by_intent)
-builder.add_edge("process_pdf", "extract_data")
-builder.add_edge("extract_data", "save_to_db")
-builder.add_conditional_edges("save_to_db", after_save)
-builder.add_edge("query", "respond")
-builder.add_edge("respond", END)
-
-# Compile
-graph = builder.compile()
-
-
-# Optional: Visualize the graph
-if __name__ == "__main__":
-    print(graph.get_graph().draw_mermaid())
+The updated graph should look like:
+```
+START --> router
+            |
+    ┌───────┼──────────┐
+    v       v          v
+list_files  query_stub respond --> END
+    |       |
+    v       v
+process_files  END
+    |
+    v
+  respond --> END
 ```
 
-**Concepts to learn**:
-- `StateGraph` is the main builder
-- `add_node(name, function)` registers nodes
-- `add_edge(from, to)` creates direct edges
-- `add_conditional_edges(from, routing_function)` creates branching
-- `compile()` creates the runnable graph
+### Files to modify
+
+| File | What to change |
+|------|---------------|
+| `agents/graph_state.py` | Add `pending_files` and `processed_count` to state |
+| `agents/nodes.py` | Add `list_files_node` and `process_files_node`, remove `upload_stub_node` |
+| `agents/graph.py` | Replace upload_stub with new nodes, update edges |
+
+### Existing code to reuse
+
+All of this logic already exists in `pdf_reader_agent.py` — you're refactoring it into graph nodes:
+
+| What | Where it is now | Where it goes |
+|------|----------------|---------------|
+| List PDF files | `pdf_reader_agent.py:52-63` | `list_files_node` |
+| Load PDF with PyPDFLoader | `pdf_reader_agent.py:106-112` | `process_files_node` |
+| Extract structured data | `pdf_reader_agent.py:172-223` | `process_files_node` (or utility) |
+| Save to DB + duplicate check | `pdf_reader_agent.py:124-132` | `process_files_node` |
+| Extraction prompt | `pdf_reader_agent.py:191-218` | Move with the extraction function |
+
+### Verification
+
+1. `uv run python main.py` then type "Process my statements"
+   - Should find PDFs, extract data, save to DB, and respond with a summary
+2. Run it again — should detect duplicates and skip them
+3. Check LangSmith dashboard — you should see 4 separate node spans: `router → list_files → process_files → respond`
+4. `uv run ruff check .` — make sure linting still passes
+
+### Concepts you'll practice
+
+- **Expanding state**: Adding new fields to `TypedDict` as the graph grows
+- **Node-to-node communication via state**: `list_files` writes `pending_files`, `process_files` reads it
+- **Refactoring existing code into nodes**: Taking working code and restructuring it — a common real-world task
+- **Sequential node flow**: `list_files → process_files → respond` is a linear pipeline within the graph
 
 ---
 
-### 3.2 Create Entry Point
-**File**: `main.py`
+## Phase 3–7: Coming Soon
 
-```python
-from agents.graph import graph
-from langchain_core.messages import HumanMessage
+Detailed plans will be written when we get there. High-level:
 
-def chat(message: str, files: list[str] = None):
-    """Send a message to the financial assistant."""
-    initial_state = {
-        "messages": [HumanMessage(content=message)],
-        "pending_files": files or [],
-        "saved_statement_ids": [],
-        "errors": [],
-    }
-
-    result = graph.invoke(initial_state)
-
-    # Get the last AI message
-    last_message = result["messages"][-1]
-    return last_message.content
-
-
-if __name__ == "__main__":
-    # Test upload
-    response = chat(
-        "Process my bank statements",
-        files=["statement1.pdf", "statement2.pdf"]
-    )
-    print(response)
-
-    # Test query
-    response = chat("What was my highest expense last month?")
-    print(response)
-```
-
----
-
-## Phase 4: Testing Checkpoints
-
-### 4.1 Test State Flow
-```bash
-# Run graph visualization
-python -c "from agents.graph import graph; print(graph.get_graph().draw_mermaid())"
-```
-
-### 4.2 Test PDF Processing
-```bash
-python -c "
-from agents.graph import graph
-from langchain_core.messages import HumanMessage
-
-result = graph.invoke({
-    'messages': [HumanMessage(content='Process my statements')],
-    'pending_files': ['your-test-file.pdf'],
-    'saved_statement_ids': [],
-    'errors': [],
-})
-print(result)
-"
-```
-
-### 4.3 Test Queries
-```bash
-python -c "
-from agents.graph import graph
-from langchain_core.messages import HumanMessage
-
-result = graph.invoke({
-    'messages': [HumanMessage(content='What was my highest expense?')],
-    'pending_files': [],
-    'saved_statement_ids': [],
-    'errors': [],
-})
-print(result['messages'][-1].content)
-"
-```
-
----
-
-## Phase 5: Enhancements (Optional)
-
-### 5.1 Add Checkpointing (Persistence)
-```python
-from langgraph.checkpoint.memory import InMemorySaver
-
-checkpointer = InMemorySaver()
-graph = builder.compile(checkpointer=checkpointer)
-
-# Now you can resume conversations
-result = graph.invoke(state, {"configurable": {"thread_id": "user-123"}})
-```
-
-### 5.2 Add Human-in-the-Loop
-```python
-from langgraph.prebuilt import ToolNode
-from langgraph.graph import interrupt
-
-def save_to_db_node(state):
-    # Ask for approval before saving
-    approval = interrupt("About to save statement. Approve?")
-    if approval == "yes":
-        # proceed with save
-        pass
-```
-
-### 5.3 Add Streaming
-```python
-# Instead of invoke, use stream
-for event in graph.stream(state):
-    print(event)
-```
-
----
-
-## Quick Reference
-
-### Graph Visualization
-```
-START → router
-           ↓
-    ┌──────┼──────┐
-    ↓      ↓      ↓
-process  query  respond
-    ↓             ↓
-extract           │
-    ↓             │
-save_to_db ───────┤
-    ↓             ↓
-    └────→ respond → END
-```
-
-### Key Imports
-```python
-from langgraph.graph import StateGraph, START, END
-from langgraph.graph.message import add_messages
-from langchain_core.messages import HumanMessage, AIMessage
-from langchain_core.tools import tool
-from langchain_openai import ChatOpenAI
-```
-
-### File Order to Implement
-1. `agents/graph_state.py` (state schema)
-2. `db/cruds.py` (add query functions)
-3. `agents/tools.py` (query tools)
-4. `agents/nodes.py` (node implementations)
-5. `agents/graph.py` (wire everything)
-6. `main.py` (test it)
-
----
-
-## Need Help?
-
-If you get stuck, ask about:
-- "How do I implement the router_node?"
-- "How do conditional edges work?"
-- "How do I test a single node?"
-- "How do I debug state flow?"
+- **Phase 3**: Add `@tool`-decorated query functions so the chatbot can answer questions about stored data (replaces `query_stub`)
+- **Phase 4**: Add `InMemorySaver` checkpointer for multi-turn conversations with `thread_id`
+- **Phase 5**: Add `interrupt()` for human approval before saving to DB
+- **Phase 6**: Replace `invoke()` with `stream()` + set up LangSmith dashboard monitoring
+- **Phase 7**: Configure `langgraph.json` for LangGraph Studio local deployment
