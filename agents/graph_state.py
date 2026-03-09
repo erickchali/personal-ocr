@@ -7,3 +7,5 @@ from typing_extensions import TypedDict
 class FinancialAssistantState(TypedDict):
     messages: Annotated[list, add_messages]
     intent: str | None
+    pending_files: list[str] | None
+    processed_count: int | None
