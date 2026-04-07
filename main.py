@@ -23,7 +23,6 @@ def main():
             print("Goodbye!")
             break
 
-
         result = graph.invoke({"messages": [HumanMessage(content=user_input)]}, config=config)
         last_message = result["messages"][-1]
         print(f"\nAssistant: {last_message.content}")
