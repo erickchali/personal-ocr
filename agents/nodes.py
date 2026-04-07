@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 from agents.extraction import extract_structured_data
 from agents.graph_state import FinancialAssistantState
 from agents.llm import get_llm
+from agents.tools import fetch_all_statements, fetch_statement_transactions
 from db.cruds import save_statement, statement_exists
 
 llm = get_llm()
@@ -86,9 +87,10 @@ def process_files_node(state: FinancialAssistantState) -> dict:
     return {"messages": [AIMessage(content="\n".join(messages))], "processed_count": processed}
 
 
-def query_stub_node(state: FinancialAssistantState) -> dict:
-    """Stub node for query processing (coming in Phase 3)."""
-    return {"messages": [AIMessage(content="Query feature coming soon.")]}
+def query_node(state: FinancialAssistantState) -> dict:
+    llm_with_tools = llm.bind_tools([fetch_statement_transactions, fetch_all_statements])
+    response = llm_with_tools.invoke(state["messages"])
+    return {"messages": [response]}
 
 
 def respond_node(state: FinancialAssistantState) -> dict:
