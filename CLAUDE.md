@@ -29,6 +29,11 @@ This project follows a specific learning workflow. **Do not skip it.**
 4. **One phase at a time** — Follow the ROADMAP.md phases in order. Don't jump ahead.
 5. **Answer the "why"** — If the developer asks why we're doing X instead of Y, always answer.
    This is a learning project — understanding the reasoning is as important as the code.
+6. **Ground suggestions in official docs** — When suggesting or explaining LangChain/LangGraph/LangSmith
+   code, always check the official documentation first using the `docs-langchain` MCP server
+   (`search_docs_by_lang_chain` and `get_page_docs_by_lang_chain`). APIs evolve fast and prebuilts get
+   deprecated (e.g., `create_react_agent` → `create_agent`). Cite the relevant doc page so the developer
+   can read further. Never rely solely on training data for framework-specific patterns.
 
 ---
 
@@ -54,11 +59,12 @@ This project follows a specific learning workflow. **Do not skip it.**
 langchain-learning/
 ├── agents/
 │   ├── extraction.py       # LLM-based PDF data extraction (structured output)
-│   ├── graph.py            # StateGraph definition — nodes, edges, compilation
+│   ├── graph.py            # StateGraph definition — exposes builder + compiled graph
 │   ├── graph_state.py      # FinancialAssistantState TypedDict
 │   ├── llm.py              # Configurable LLM factory (Google/OpenAI/Anthropic)
 │   ├── models.py           # Pydantic models: CreditCardStatement, Transaction, etc.
-│   ├── nodes.py            # Node functions: router, list_files, process_files, respond
+│   ├── nodes.py            # Node functions: router, list_files, process_files, query, respond
+│   ├── tools.py            # @tool-decorated query functions for the agentic loop
 │   └── pdf_reader_agent.py # LEGACY: original create_agent implementation (keep as reference)
 ├── db/
 │   ├── cruds.py            # Database operations: save, query, check duplicates
@@ -87,7 +93,13 @@ The old agent is kept as a reference to compare both approaches.
 ### Why nodes for PDF processing, tools for queries?
 - **Nodes** are used when the flow is deterministic (always list → process → respond)
 - **Tools** are used when the LLM needs to decide what to do (query intent varies per question)
-Phase 3 will introduce tools for the query path.
+The query path uses `query_node` + `ToolNode` + `tools_condition` to form an agentic loop where the LLM picks which tool(s) to call.
+
+### Why expose both `builder` and a compiled `graph`?
+`agents/graph.py` exports the uncompiled `builder` AND a `graph` compiled without a checkpointer.
+- `langgraph dev` uses the compiled `graph` (Studio provides its own persistence)
+- `main.py` imports `builder` and compiles its own version with `InMemorySaver` for CLI memory
+This avoids the "custom checkpointer conflicts with platform" error from LangGraph Studio.
 
 ### Why TypedDict for state, not Pydantic?
 LangGraph merges partial state updates from each node. TypedDict supports this natively.
@@ -162,10 +174,10 @@ See `ROADMAP.md` for the detailed phase-by-phase plan.
 |-------|-------|--------|
 | 0 | CI/CD: Ruff + GitHub Actions | Done |
 | 1 | StateGraph skeleton + intent router | Done |
-| 2 | Wire PDF processing into graph nodes | In Progress |
-| 3 | Query tools for financial data | Pending |
-| 4 | Checkpointing + multi-turn conversation | Pending |
-| 5 | Human-in-the-loop approval | Pending |
+| 2 | Wire PDF processing into graph nodes | Done |
+| 3 | Query tools for financial data | Done |
+| 4 | Checkpointing + multi-turn conversation | Done |
+| 5 | Human-in-the-loop approval | In Progress |
 | 6 | Streaming + LangSmith monitoring | Pending |
 | 7 | LangGraph Studio + deployment | Pending |
 
