@@ -1,8 +1,10 @@
 import logging
 from pathlib import Path
+from typing import Literal
 
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_core.messages import AIMessage
+from langgraph.types import Command, interrupt
 from pydantic import BaseModel, Field
 
 from agents.extraction import extract_structured_data
@@ -51,14 +53,14 @@ def list_files_node(state: FinancialAssistantState) -> dict:
     return {"messages": [success_message], "pending_files": file_names}
 
 
-def process_files_node(state: FinancialAssistantState) -> dict:
+def extract_files_node(state: FinancialAssistantState) -> dict:
     pending_file_names = state["pending_files"]
-    processed = 0
     messages = []
 
+    statements = []
     for filename in pending_file_names:
         file_path = FILES_DIRECTORY / filename
-        logging.info(f"Processing {filename.upper()}.txt")
+        logging.info(f"Processing {filename.upper()}.pdf")
         if not filename.lower().endswith(".pdf"):
             messages.append(f"{file_path} Not a PDF.")
             continue
@@ -72,19 +74,17 @@ def process_files_node(state: FinancialAssistantState) -> dict:
             pdf_content = "\n\n".join(content_parts)
 
             structured_data = extract_structured_data(pdf_content)
-            if not statement_exists(
-                structured_data.summary.card_number_masked, structured_data.summary.cut_off_date
-            ):
-                statement_id = save_statement(structured_data)
-                logging.info(f"saving statement  {filename.upper()} to Database")
-                messages.append(f"Statement {statement_id} saved.")
-            else:
-                messages.append(f"Statement {filename.upper()} already exists.")
-            processed += 1
+            statements.append(structured_data)
+
         except Exception:
             logging.exception(f"Error processing {filename.upper()}.")
 
-    return {"messages": [AIMessage(content="\n".join(messages))], "processed_count": processed}
+    return {
+        "pending_statements": statements,
+        "messages": [
+            AIMessage(content=f"Extracted {len(statements)} statements, awaiting approval")
+        ],
+    }
 
 
 def query_node(state: FinancialAssistantState) -> dict:
@@ -97,3 +97,39 @@ def respond_node(state: FinancialAssistantState) -> dict:
     """Generate a conversational response using the full message history."""
     response = llm.invoke(state["messages"])
     return {"messages": [response]}
+
+
+def approval_node(state: FinancialAssistantState) -> Command[Literal["save_files", "cancel"]]:
+    pending_statements = state["pending_statements"]
+    summary_messages = ["Statements pending to be processed"]
+    for statement in pending_statements:
+        summary_messages.append(
+            f"{statement.summary.card_number_masked} - {statement.summary.card_type}"
+        )
+    final_message = "\n".join(summary_messages)
+    approve = interrupt({"question": "Insert in DB?", "details": final_message})
+
+    if approve:
+        return Command(goto="save_files")
+    return Command(goto="cancel")
+
+
+def cancel_node(state: FinancialAssistantState) -> dict:
+    return {"messages": [AIMessage(content="Statements not saved to db.")]}
+
+
+def save_files_node(state: FinancialAssistantState) -> dict:
+    pending_statements = state["pending_statements"]
+    messages = []
+    processed = 0
+    for statement in pending_statements:
+        if not statement_exists(
+            statement.summary.card_number_masked, statement.summary.cut_off_date
+        ):
+            statement_id = save_statement(statement)
+            logging.info("saving statement to Database")
+            messages.append(f"Statement {statement_id} saved.")
+            processed += 1
+        else:
+            messages.append("Statement already exists.")
+    return {"messages": [AIMessage(content="\n".join(messages))], "processed_count": processed}

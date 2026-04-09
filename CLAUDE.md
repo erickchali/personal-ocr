@@ -170,14 +170,14 @@ uv sync
 
 See `ROADMAP.md` for the detailed phase-by-phase plan.
 
-| Phase | Focus | Status |
-|-------|-------|--------|
-| 0 | CI/CD: Ruff + GitHub Actions | Done |
-| 1 | StateGraph skeleton + intent router | Done |
-| 2 | Wire PDF processing into graph nodes | Done |
-| 3 | Query tools for financial data | Done |
-| 4 | Checkpointing + multi-turn conversation | Done |
-| 5 | Human-in-the-loop approval | In Progress |
+| Phase | Focus | Status  |
+|-------|-------|---------|
+| 0 | CI/CD: Ruff + GitHub Actions | Done    |
+| 1 | StateGraph skeleton + intent router | Done    |
+| 2 | Wire PDF processing into graph nodes | Done    |
+| 3 | Query tools for financial data | Done    |
+| 4 | Checkpointing + multi-turn conversation | Done    |
+| 5 | Human-in-the-loop approval | Done    |
 | 6 | Streaming + LangSmith monitoring | Pending |
 | 7 | LangGraph Studio + deployment | Pending |
 

@@ -1,7 +1,7 @@
 from agents.llm import get_llm
 from agents.models import CreditCardStatement
 
-llm = get_llm()
+llm = get_llm("google")
 
 
 def extract_structured_data(pdf_content: str) -> CreditCardStatement:
