@@ -4,7 +4,7 @@ from typing import Literal
 
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_core.messages import AIMessage
-from langgraph.types import interrupt, Command
+from langgraph.types import Command, interrupt
 from pydantic import BaseModel, Field
 
 from agents.extraction import extract_structured_data

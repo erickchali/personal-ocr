@@ -126,30 +126,44 @@ Assistant: [resolves "the first one" from message history, calls fetch_statement
 
 ---
 
-## Phase 5: Human-in-the-Loop Approval (CURRENT)
-
-### What we're building
-
-Right now `process_files_node` automatically saves extracted statements to the database. But the LLM extraction can be wrong — wrong amounts, misread dates, misclassified transactions. We need a human in the loop to approve before writing to the DB.
-
-After extraction but **before** saving, the graph will:
-1. Pause and surface the extracted statement summary to the user
-2. Wait for "approve" or "reject"
-3. If approved → save to DB
-4. If rejected → skip and move on
-
-### The Concept: `interrupt()`
-
-LangGraph has a primitive called `interrupt()` that pauses graph execution and surfaces a value to the caller. The caller resumes the graph by passing back a decision via `Command(resume=...)`.
-
-This pause-and-resume pattern is **only possible because of checkpointing** (Phase 4 was the prerequisite). The graph saves its state at the interrupt, the human reviews, and then the graph resumes from that exact checkpoint.
-
-### Concepts to practice
-
-- **`interrupt()`** — the human-in-the-loop primitive
-- **Graph pause/resume mechanics** — how state is preserved across the pause
-- **`Command(resume=...)`** — how to send the human's decision back into the graph
-- **Why checkpointing is foundational** — without it, the graph couldn't pause
+## Phase 5: Human-in-the-Loop Approval — Done                                                       
+                  
+  Split the old `process_files_node` into a multi-step flow with a human checkpoint:                  
+   
+  list_files --> extract_files --> approval (interrupt) --approve--> save_files --> respond --> END   
+                                                        --reject--> cancel --> END
+                                                                                                      
+### What was built
+                                                                                                      
+- `agents/nodes.py` — Split `process_files_node` into three new nodes:
+  - `extract_files_node` — PDF parsing + LLM extraction, stores results in `pending_statements`     
+  - `approval_node` — calls `interrupt()` to pause and surface a summary, then routes via           
+`Command(goto=...)`                                                                                 
+  - `save_files_node` — writes approved statements to the DB                                        
+  - `cancel_node` — returns a static rejection message (avoids LLM hallucination on the rejection   
+path)                                                                                               
+- `agents/graph_state.py` — Added `pending_statements: list[CreditCardStatement]` field
+- `agents/graph.py` — Rewired edges for the new extract → approval → save/cancel flow               
+- `main.py` — Detects `__interrupt__` in the result, prompts the user, resumes with                 
+`Command(resume=bool)`                                                                              
+                                                                                                      
+### Key design decisions                                                                            
+                  
+- **Dedicated `cancel_node`** instead of routing rejections through `respond_node` — the LLM would  
+hallucinate confused responses because the rejection wasn't in message history
+- **`Command(goto=...)`** for dynamic routing from inside the approval node — requires              
+`Literal[...]` type annotation on the return type                                                   
+- **Expensive work before `interrupt()`** — extraction happens in the upstream node so it doesn't
+re-run on resume                                                                                    
+                  
+### Concepts practiced                                                                              
+                  
+- **`interrupt()`** — pauses the graph and surfaces a payload to the caller                         
+- **`Command(resume=...)`** — sends the human's decision back; becomes the return value of
+`interrupt()`                                                                                       
+- **`Command(goto=...)`** — dynamic node routing from inside a node (vs conditional edges)
+- **Why checkpointing is foundational** — without Phase 4, there's no saved state to resume from    
+- **Code before `interrupt()` re-runs on resume** — design accordingly
 
 ---
 

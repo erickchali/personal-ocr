@@ -6,7 +6,7 @@ from langchain_core.messages import AIMessage
 from agents.extraction import extract_structured_data
 from agents.graph_state import FinancialAssistantState
 from agents.nodes import FILES_DIRECTORY
-from db.cruds import statement_exists, save_statement
+from db.cruds import save_statement, statement_exists
 
 
 def process_files_node(state: FinancialAssistantState) -> dict:
