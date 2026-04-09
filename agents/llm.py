@@ -6,12 +6,13 @@ from langchain_core.language_models import BaseChatModel
 load_dotenv()
 
 
-def get_llm() -> BaseChatModel:
+def get_llm(provider=None) -> BaseChatModel:
     """Return a configured chat model based on LLM_PROVIDER env var.
 
     Supported providers: "google" (default), "openai", "anthropic".
     """
-    provider = os.getenv("LLM_PROVIDER", "google").lower()
+    if not provider:
+        provider = os.getenv("LLM_PROVIDER", "google").lower()
 
     if provider == "openai":
         from langchain_openai import ChatOpenAI
@@ -21,7 +22,7 @@ def get_llm() -> BaseChatModel:
         from langchain_anthropic import ChatAnthropic
 
         return ChatAnthropic(model="claude-sonnet-4-20250514", temperature=0)
-    else:
+    elif provider == "google":
         from langchain_google_genai import ChatGoogleGenerativeAI
 
         return ChatGoogleGenerativeAI(model="gemini-2.5-flash", max_retries=2)
