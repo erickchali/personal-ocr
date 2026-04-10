@@ -1,9 +1,12 @@
+from langsmith import traceable
+
 from agents.llm import get_llm
 from agents.models import CreditCardStatement
 
 llm = get_llm("google")
 
 
+@traceable
 def extract_structured_data(pdf_content: str) -> CreditCardStatement:
     """
     Extract structured data from PDF content using the LLM.

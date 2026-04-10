@@ -23,8 +23,8 @@ Transform the PDF processor into a multi-node LangGraph financial assistant chat
 | **2** | Wire PDF processing into graph nodes | Done |
 | **3** | Add query tools for financial data | Done |
 | **4** | Checkpointing + multi-turn conversation | Done |
-| **5** | Human-in-the-loop approval | **Current** |
-| **6** | Streaming + LangSmith monitoring | Pending |
+| **5** | Human-in-the-loop approval | Done |
+| **6** | Streaming + LangSmith monitoring | Done |
 | **7** | (Stretch) LangGraph Studio + deployment | Pending |
 
 ---
@@ -167,7 +167,32 @@ re-run on resume
 
 ---
 
-## Phase 6–7: Coming Soon
+## Phase 6: Streaming + LangSmith Monitoring — Done
 
-- **Phase 6**: Replace `invoke()` with `stream()` + set up LangSmith dashboard monitoring
+Replaced `graph.invoke()` with `graph.stream()` for real-time output and added custom progress updates.
+
+### What was built
+
+- `main.py` — Replaced `invoke()` with `stream()` using v2 format and multiple stream modes (`"updates"` + `"custom"`). Handles interrupt detection and resume within the streaming loop.
+- `agents/nodes.py` — Added `get_stream_writer()` to `extract_files_node` to emit per-file progress updates during PDF processing.
+- LangSmith traces verified at smith.langchain.com — node execution, LLM calls, tool calls all visible.
+
+### Key concepts
+
+- **`graph.stream()`** — yields chunks as the graph executes, instead of blocking until completion
+- **Stream modes** — `"updates"` (node state updates), `"custom"` (user-defined progress), `"messages"` (LLM tokens), `"values"` (full state snapshots)
+- **`version="v2"`** — recommended format (requires LangGraph >= 1.1), chunks are dicts with `type`/`data` keys
+- **`get_stream_writer()`** — emit custom status messages from inside nodes (side-channel, not saved in state or LangSmith)
+- **`@traceable`** — LangSmith decorator to trace custom functions (not needed here since LangGraph auto-traces nodes and LLM calls)
+
+### Concepts practiced
+
+- **Streaming vs invoke** — trade-offs between simplicity and real-time UX
+- **Multiple stream modes** — combining node updates with custom progress in a single loop
+- **LangSmith observability** — reading traces to debug node execution, LLM inputs/outputs, and tool calls
+
+---
+
+## Phase 7: Coming Soon
+
 - **Phase 7**: Configure `langgraph.json` for LangGraph Studio local deployment

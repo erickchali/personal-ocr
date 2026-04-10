@@ -4,6 +4,7 @@ from typing import Literal
 
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_core.messages import AIMessage
+from langgraph.config import get_stream_writer
 from langgraph.types import Command, interrupt
 from pydantic import BaseModel, Field
 
@@ -58,6 +59,7 @@ def extract_files_node(state: FinancialAssistantState) -> dict:
     messages = []
 
     statements = []
+    writer = get_stream_writer()
     for filename in pending_file_names:
         file_path = FILES_DIRECTORY / filename
         logging.info(f"Processing {filename.upper()}.pdf")
@@ -75,6 +77,8 @@ def extract_files_node(state: FinancialAssistantState) -> dict:
 
             structured_data = extract_structured_data(pdf_content)
             statements.append(structured_data)
+
+            writer({"status": f"Extracting file {filename}"})
 
         except Exception:
             logging.exception(f"Error processing {filename.upper()}.")
