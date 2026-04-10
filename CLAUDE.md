@@ -178,7 +178,7 @@ See `ROADMAP.md` for the detailed phase-by-phase plan.
 | 3 | Query tools for financial data | Done    |
 | 4 | Checkpointing + multi-turn conversation | Done    |
 | 5 | Human-in-the-loop approval | Done    |
-| 6 | Streaming + LangSmith monitoring | Pending |
+| 6 | Streaming + LangSmith monitoring | Done    |
 | 7 | LangGraph Studio + deployment | Pending |
 
 ---
