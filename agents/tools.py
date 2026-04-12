@@ -1,5 +1,3 @@
-import json
-
 from langchain_core.tools import tool
 
 from db.cruds import get_all_statements, get_statement
@@ -17,7 +15,7 @@ def fetch_statement_transactions(statement_id: int) -> str | None:
     """
     statement_data = get_statement(statement_id=statement_id)
     if statement_data:
-        return json.dumps(statement_data)
+        return statement_data.model_dump_json()
     return None
 
 
@@ -29,5 +27,5 @@ def fetch_all_statements() -> str | None:
     """
     statement_data = get_all_statements()
     if statement_data:
-        return json.dumps(statement_data)
+        return "[" + ",".join(s.model_dump_json() for s in statement_data) + "]"
     return None
