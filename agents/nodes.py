@@ -126,7 +126,8 @@ def save_files_node(state: FinancialAssistantState) -> dict:
         if not statement_exists(statement.summary.card_number_masked, statement.summary.cut_off_date):
             writer(
                 {
-                    "status": f"Saving statement {statement.summary.card_number_masked} - {statement.summary.cut_off_date}"
+                    "status":
+                    f"Saving statement {statement.summary.card_number_masked} - {statement.summary.cut_off_date}"
                 }
             )
             statement_id = save_statement(statement)
