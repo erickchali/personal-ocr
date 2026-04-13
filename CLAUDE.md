@@ -46,7 +46,9 @@ This project follows a specific learning workflow. **Do not skip it.**
 | LangChain | LLM integrations, tools | >=1.1.3 |
 | LangSmith | Tracing and monitoring | >=0.4.43 |
 | Google Gemini | Default LLM (gemini-2.5-flash) | via langchain-google-genai |
-| SQLite | Database for statements and transactions | built-in |
+| PostgreSQL | Database (via pgvector/pgvector:pg16 Docker image) | 16 |
+| SQLAlchemy | ORM for database models and queries | >=2.0 |
+| Alembic | Database migration framework | latest |
 | Pydantic | Data validation and structured LLM output | >=2.12.5 |
 | uv | Package manager and task runner | latest |
 | Ruff | Linting and formatting | >=0.15.1 |
@@ -68,7 +70,12 @@ langchain-learning/
 │   └── pdf_reader_agent.py # LEGACY: original create_agent implementation (keep as reference)
 ├── db/
 │   ├── cruds.py            # Database operations: save, query, check duplicates
-│   └── init_db.py          # SQLite schema initialization
+│   ├── database.py         # SQLAlchemy engine + session factory (reads DATABASE_URL)
+│   ├── models.py           # SQLAlchemy ORM models: StatementModel, TransactionModel
+│   └── schemas.py          # Pydantic response schemas for DB layer output
+├── alembic/
+│   ├── env.py              # Alembic config (reads DATABASE_URL, imports Base metadata)
+│   └── versions/           # Auto-generated migration scripts
 ├── pdf-to-process/         # Drop PDF bank statements here for processing
 ├── .github/workflows/
 │   └── lint.yml            # CI: ruff check + format on PRs to main
@@ -112,6 +119,12 @@ One tool for linting, formatting, and import sorting. 10-100x faster. Industry s
 Simple, zero-config, file-based. Good for learning DB patterns without infrastructure setup.
 Phase 3+ could evolve to PostgreSQL or add a vector DB for semantic search.
 
+### All functions that return data must have a Pydantic response schema
+Never return raw dicts from functions. Define a Pydantic model in the appropriate schemas file
+(e.g., `db/schemas.py`) and use it as the return type. Use `model_validate()` with
+`from_attributes=True` to convert ORM models to Pydantic. This ensures type safety, serialization
+consistency, and a clear contract between layers.
+
 ---
 
 ## Common Commands
@@ -138,8 +151,14 @@ uv run python -c "from agents.graph import graph; print(graph.get_graph().draw_m
 # Run LangGraph Studio locally
 uv run langgraph dev
 
-# Initialize the database manually
-uv run python -m db.init_db
+# Start Docker services (Postgres, MinIO, Metabase)
+docker compose up -d
+
+# Run database migrations
+uv run alembic upgrade head
+
+# Generate a new migration after changing db/models.py
+uv run alembic revision --autogenerate -m "describe the change"
 ```
 
 ---

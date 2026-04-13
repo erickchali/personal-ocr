@@ -66,10 +66,7 @@ def list_pdf_files(
         update={
             "messages": [
                 ToolMessage(
-                    content=(
-                        f"{len(file_names)} Files Found, "
-                        "please proceed to read and process all files"
-                    ),
+                    content=(f"{len(file_names)} Files Found, please proceed to read and process all files"),
                     tool_call_id=runtime.tool_call_id,
                 )
             ],

@@ -36,8 +36,7 @@ def router_node(state: FinancialAssistantState) -> dict:
     last_message = state["messages"][-1]
     classifier = llm.with_structured_output(IntentClassification)
     result = classifier.invoke(
-        f"Classify this user message into one of: upload, query, chat.\n\n"
-        f"Message: {last_message.content}"
+        f"Classify this user message into one of: upload, query, chat.\n\nMessage: {last_message.content}"
     )
     return {"intent": result.intent}
 
@@ -85,9 +84,7 @@ def extract_files_node(state: FinancialAssistantState) -> dict:
 
     return {
         "pending_statements": statements,
-        "messages": [
-            AIMessage(content=f"Extracted {len(statements)} statements, awaiting approval")
-        ],
+        "messages": [AIMessage(content=f"Extracted {len(statements)} statements, awaiting approval")],
     }
 
 
@@ -107,9 +104,7 @@ def approval_node(state: FinancialAssistantState) -> Command[Literal["save_files
     pending_statements = state["pending_statements"]
     summary_messages = ["Statements pending to be processed"]
     for statement in pending_statements:
-        summary_messages.append(
-            f"{statement.summary.card_number_masked} - {statement.summary.card_type}"
-        )
+        summary_messages.append(f"{statement.summary.card_number_masked} - {statement.summary.card_type}")
     final_message = "\n".join(summary_messages)
     approve = interrupt({"question": "Insert in DB?", "details": final_message})
 
@@ -126,10 +121,12 @@ def save_files_node(state: FinancialAssistantState) -> dict:
     pending_statements = state["pending_statements"]
     messages = []
     processed = 0
+    writer = get_stream_writer()
     for statement in pending_statements:
-        if not statement_exists(
-            statement.summary.card_number_masked, statement.summary.cut_off_date
-        ):
+        if not statement_exists(statement.summary.card_number_masked, statement.summary.cut_off_date):
+            card = statement.summary.card_number_masked
+            date = statement.summary.cut_off_date
+            writer({"status": f"Saving statement {card} - {date}"})
             statement_id = save_statement(statement)
             logging.info("saving statement to Database")
             messages.append(f"Statement {statement_id} saved.")
