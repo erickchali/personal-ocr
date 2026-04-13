@@ -124,12 +124,9 @@ def save_files_node(state: FinancialAssistantState) -> dict:
     writer = get_stream_writer()
     for statement in pending_statements:
         if not statement_exists(statement.summary.card_number_masked, statement.summary.cut_off_date):
-            writer(
-                {
-                    "status":
-                    f"Saving statement {statement.summary.card_number_masked} - {statement.summary.cut_off_date}"
-                }
-            )
+            card = statement.summary.card_number_masked
+            date = statement.summary.cut_off_date
+            writer({"status": f"Saving statement {card} - {date}"})
             statement_id = save_statement(statement)
             logging.info("saving statement to Database")
             messages.append(f"Statement {statement_id} saved.")
