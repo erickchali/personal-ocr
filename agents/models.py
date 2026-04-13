@@ -65,9 +65,7 @@ class Transaction(BaseModel):
     operation_date: GuatemalanDate = Field(
         description="Date when the bank processed the transaction (Fecha de operación)"
     )
-    consumption_date: GuatemalanDate = Field(
-        description="Date when the purchase was made (Fecha de consumo)"
-    )
+    consumption_date: GuatemalanDate = Field(description="Date when the purchase was made (Fecha de consumo)")
     description: str = Field(description="Merchant name or transaction description")
     amount: Decimal = Field(
         description="Transaction amount (always positive)",
@@ -101,34 +99,24 @@ class StatementSummary(BaseModel):
     payment_due_date: GuatemalanDate = Field(description="Payment due date (Fecha de pago)")
 
     # Balances in local currency (GTQ)
-    previous_balance_gtq: Decimal = Field(
-        description="Previous balance in Quetzales (Saldo anterior)"
-    )
+    previous_balance_gtq: Decimal = Field(description="Previous balance in Quetzales (Saldo anterior)")
     purchases_gtq: Decimal = Field(description="Total purchases and withdrawals in Quetzales")
     payments_gtq: Decimal = Field(description="Total payments in Quetzales")
     purchases_usd: Decimal = Field(description="Total purchases and withdrawals in USD ($)")
     payments_usd: Decimal = Field(description="Total payments in USD ($)")
-    current_balance_gtq: Decimal = Field(
-        description="Current balance in Quetzales (Saldo al corte)"
-    )
+    current_balance_gtq: Decimal = Field(description="Current balance in Quetzales (Saldo al corte)")
 
     # Balances in USD (optional since not all cards have USD)
-    previous_balance_usd: Decimal | None = Field(
-        default=None, description="Previous balance in USD"
-    )
+    previous_balance_usd: Decimal | None = Field(default=None, description="Previous balance in USD")
     current_balance_usd: Decimal | None = Field(default=None, description="Current balance in USD")
 
     # Credit info
     credit_limit_gtq: Decimal = Field(description="Credit limit in Quetzales")
     available_credit_gtq: Decimal = Field(description="Available credit in Quetzales")
-    minimum_payment_gtq: Decimal = Field(
-        description="Minimum payment due in Quetzales (Pago mínimo)"
-    )
+    minimum_payment_gtq: Decimal = Field(description="Minimum payment due in Quetzales (Pago mínimo)")
 
     # Interest rates
-    annual_interest_rate: Decimal = Field(
-        description="Annual interest rate as percentage (e.g., 24.00)"
-    )
+    annual_interest_rate: Decimal = Field(description="Annual interest rate as percentage (e.g., 24.00)")
 
 
 class CreditCardStatement(BaseModel):

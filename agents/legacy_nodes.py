@@ -30,9 +30,7 @@ def process_files_node(state: FinancialAssistantState) -> dict:
             pdf_content = "\n\n".join(content_parts)
 
             structured_data = extract_structured_data(pdf_content)
-            if not statement_exists(
-                structured_data.summary.card_number_masked, structured_data.summary.cut_off_date
-            ):
+            if not statement_exists(structured_data.summary.card_number_masked, structured_data.summary.cut_off_date):
                 statement_id = save_statement(structured_data)
                 logging.info(f"saving statement  {filename.upper()} to Database")
                 messages.append(f"Statement {statement_id} saved.")

@@ -30,12 +30,8 @@ def save_statement(statement: CreditCardStatement) -> int:
             purchases_usd=float(summary.purchases_usd),
             payments_usd=float(summary.payments_usd),
             current_balance_gtq=float(summary.current_balance_gtq),
-            previous_balance_usd=(
-                float(summary.previous_balance_usd) if summary.previous_balance_usd else None
-            ),
-            current_balance_usd=(
-                float(summary.current_balance_usd) if summary.current_balance_usd else None
-            ),
+            previous_balance_usd=(float(summary.previous_balance_usd) if summary.previous_balance_usd else None),
+            current_balance_usd=(float(summary.current_balance_usd) if summary.current_balance_usd else None),
             credit_limit_gtq=float(summary.credit_limit_gtq),
             available_credit_gtq=float(summary.available_credit_gtq),
             minimum_payment_gtq=float(summary.minimum_payment_gtq),
@@ -81,9 +77,7 @@ def get_statement(statement_id: int) -> StatementDetailResponse | None:
             return None
 
         summary = StatementSummaryResponse.model_validate(db_statement)
-        transactions = [
-            TransactionResponse.model_validate(txn) for txn in db_statement.transactions
-        ]
+        transactions = [TransactionResponse.model_validate(txn) for txn in db_statement.transactions]
 
         return StatementDetailResponse(summary=summary, transactions=transactions)
 
