@@ -199,6 +199,7 @@ See `ROADMAP.md` for the detailed phase-by-phase plan.
 | 5 | Human-in-the-loop approval | Done    |
 | 6 | Streaming + LangSmith monitoring | Done    |
 | 7 | LangGraph Studio + deployment | Pending |
+| 8 | Postgres + SQLAlchemy + Alembic + SQL Agent | Done    |
 
 ---
 

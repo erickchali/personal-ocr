@@ -26,6 +26,7 @@ Transform the PDF processor into a multi-node LangGraph financial assistant chat
 | **5** | Human-in-the-loop approval | Done |
 | **6** | Streaming + LangSmith monitoring | Done |
 | **7** | (Stretch) LangGraph Studio + deployment | Pending |
+| **8** | Postgres + SQLAlchemy + Alembic + SQL Agent | Done |
 
 ---
 
@@ -190,6 +191,39 @@ Replaced `graph.invoke()` with `graph.stream()` for real-time output and added c
 - **Streaming vs invoke** — trade-offs between simplicity and real-time UX
 - **Multiple stream modes** — combining node updates with custom progress in a single loop
 - **LangSmith observability** — reading traces to debug node execution, LLM inputs/outputs, and tool calls
+
+---
+
+## Phase 8: Postgres + SQLAlchemy + Alembic + SQL Agent — Done
+
+Replaced SQLite with PostgreSQL, added ORM models, migrations, Pydantic response schemas, tests, and an LLM-powered SQL agent.
+
+### What was built
+
+- **Docker infrastructure** — `docker-compose.yml` with Postgres (pgvector), MinIO, Metabase. All host ports parametrized via `.env`.
+- **SQLAlchemy ORM** — `db/models.py` with `StatementModel` and `TransactionModel` replacing raw SQL.
+- **Alembic migrations** — `alembic/` directory with auto-generated migrations. Schema changes are version-controlled.
+- **Pydantic response schemas** — `db/schemas.py` defines the contract between the DB layer and the rest of the app (`StatementDetailResponse`, `StatementListItem`, etc.).
+- **Rewritten CRUDs** — `db/cruds.py` uses SQLAlchemy queries and returns Pydantic models instead of raw dicts.
+- **SQL Agent** — `SQLDatabaseToolkit` gives the LLM tools to inspect schema and write SQL queries from natural language.
+- **Read-only DB user** — `query_reader` Postgres user with only SELECT privileges for the SQL agent. Auto-created via Docker init script.
+- **System prompt** — `query_node` includes a system message instructing the LLM to only generate SELECT queries.
+- **Tests** — `tests/test_cruds.py` with 14 tests using a throwaway SQLite DB. CI updated to run tests.
+- **Date columns** — Migrated from `String` to proper `Date` type for all date fields.
+
+### Key design decisions
+
+- **Three schema layers** — `agents/models.py` (LLM extraction), `db/models.py` (ORM/DB), `db/schemas.py` (response contracts). Each serves a different purpose.
+- **Defense in depth for SQL safety** — system prompt (soft) + read-only DB user (hard). Security enforced at database level, not application level.
+- **`SQLDatabaseToolkit`** over custom tools — battle-tested, includes schema inspection and query checking out of the box.
+- **SQLite for tests, Postgres for app** — tests don't need Docker, CI stays simple.
+
+### Concepts practiced
+
+- **SQLAlchemy 2.x** — `DeclarativeBase`, `Mapped[]`, `mapped_column()`, `model_validate(from_attributes=True)`
+- **Alembic** — `revision --autogenerate`, `upgrade head`, `postgresql_using` for type migrations
+- **Text-to-SQL** — LLM inspects schema and writes queries to answer natural language questions
+- **Layered security** — system prompts + database-level access control
 
 ---
 
