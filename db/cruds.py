@@ -22,8 +22,8 @@ def save_statement(statement: CreditCardStatement) -> int:
             account_holder=summary.account_holder,
             card_number_masked=summary.card_number_masked,
             card_type=summary.card_type,
-            cut_off_date=str(summary.cut_off_date),
-            payment_due_date=str(summary.payment_due_date),
+            cut_off_date=summary.cut_off_date,
+            payment_due_date=summary.payment_due_date,
             previous_balance_gtq=float(summary.previous_balance_gtq),
             purchases_gtq=float(summary.purchases_gtq),
             payments_gtq=float(summary.payments_gtq),
@@ -40,8 +40,8 @@ def save_statement(statement: CreditCardStatement) -> int:
 
         for txn in statement.transactions:
             db_txn = TransactionModel(
-                operation_date=str(txn.operation_date),
-                consumption_date=str(txn.consumption_date),
+                operation_date=txn.operation_date,
+                consumption_date=txn.consumption_date,
                 description=txn.description,
                 amount=float(txn.amount),
                 currency=txn.currency,
@@ -61,7 +61,7 @@ def statement_exists(card_number_masked: str, cut_off_date: date) -> bool:
     with SessionLocal() as session:
         stmt = select(StatementModel).where(
             StatementModel.card_number_masked == card_number_masked,
-            StatementModel.cut_off_date == str(cut_off_date),
+            StatementModel.cut_off_date == cut_off_date,
         )
         result = session.execute(stmt).scalar_one_or_none()
         return result is not None

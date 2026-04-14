@@ -5,7 +5,7 @@ They are the interface between the database and the rest of the app
 (graph nodes, tools, future API endpoints).
 """
 
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict
 
@@ -15,8 +15,8 @@ class TransactionResponse(BaseModel):
 
     id: int
     statement_id: int
-    operation_date: str
-    consumption_date: str
+    operation_date: date
+    consumption_date: date
     description: str
     amount: float
     currency: str
@@ -31,8 +31,8 @@ class StatementSummaryResponse(BaseModel):
     account_holder: str
     card_number_masked: str
     card_type: str | None = None
-    cut_off_date: str
-    payment_due_date: str | None = None
+    cut_off_date: date
+    payment_due_date: date | None = None
     previous_balance_gtq: float | None = None
     purchases_gtq: float | None = None
     payments_gtq: float | None = None
@@ -60,6 +60,6 @@ class StatementListItem(BaseModel):
     account_holder: str
     card_number_masked: str
     card_type: str | None = None
-    cut_off_date: str
+    cut_off_date: date
     current_balance_gtq: float | None = None
     created_at: datetime | None = None

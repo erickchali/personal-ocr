@@ -2,8 +2,10 @@ import logging
 from pathlib import Path
 from typing import Literal
 
+from langchain_community.agent_toolkits import SQLDatabaseToolkit
 from langchain_community.document_loaders import PyPDFLoader
-from langchain_core.messages import AIMessage
+from langchain_community.utilities import SQLDatabase
+from langchain_core.messages import AIMessage, SystemMessage
 from langgraph.config import get_stream_writer
 from langgraph.types import Command, interrupt
 from pydantic import BaseModel, Field
@@ -11,12 +13,30 @@ from pydantic import BaseModel, Field
 from agents.extraction import extract_structured_data
 from agents.graph_state import FinancialAssistantState
 from agents.llm import get_llm
-from agents.tools import fetch_all_statements, fetch_statement_transactions
 from db.cruds import save_statement, statement_exists
+from db.database import DATABASE_READ_URL
 
 llm = get_llm()
 
 FILES_DIRECTORY = Path(__file__).parent.parent / "pdf-to-process"
+
+
+read_only_db = SQLDatabase.from_uri(DATABASE_READ_URL)
+toolkit = SQLDatabaseToolkit(db=read_only_db, llm=llm)
+sql_tools = toolkit.get_tools()
+
+QUERY_SYSTEM_PROMPT = (
+    "You are a financial data analyst. You have access to tools that let you inspect "
+    "database schema and run SQL queries against a PostgreSQL database containing "
+    "credit card statements and transactions.\n\n"
+    "Rules:\n"
+    "- Only generate SELECT queries. Never generate INSERT, UPDATE, DELETE, DROP, ALTER, "
+    "TRUNCATE, or any write/modify operations.\n"
+    "- Always inspect the schema before writing a query.\n"
+    "- Use proper date functions (EXTRACT, TO_CHAR) for date columns.\n"
+    "- Format monetary amounts with 2 decimal places.\n"
+    "- If a query fails, read the error and try a corrected query."
+)
 
 
 class IntentClassification(BaseModel):
@@ -89,8 +109,9 @@ def extract_files_node(state: FinancialAssistantState) -> dict:
 
 
 def query_node(state: FinancialAssistantState) -> dict:
-    llm_with_tools = llm.bind_tools([fetch_statement_transactions, fetch_all_statements])
-    response = llm_with_tools.invoke(state["messages"])
+    llm_with_tools = llm.bind_tools(sql_tools)
+    messages = [SystemMessage(content=QUERY_SYSTEM_PROMPT)] + state["messages"]
+    response = llm_with_tools.invoke(messages)
     return {"messages": [response]}
 
 

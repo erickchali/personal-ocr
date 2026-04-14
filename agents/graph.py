@@ -11,10 +11,7 @@ from agents.nodes import (
     respond_node,
     router_node,
     save_files_node,
-)
-from agents.tools import (
-    fetch_all_statements,
-    fetch_statement_transactions,
+    sql_tools,
 )
 
 
@@ -37,7 +34,7 @@ builder.add_node("extract_files", extract_files_node)
 builder.add_node("save_files", save_files_node)
 builder.add_node("approval", approval_node)
 builder.add_node("cancel", cancel_node)
-builder.add_node("tools", ToolNode([fetch_statement_transactions, fetch_all_statements]))
+builder.add_node("tools", ToolNode(sql_tools))
 builder.add_node("query", query_node)
 builder.add_node("respond", respond_node)
 

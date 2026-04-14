@@ -1,6 +1,6 @@
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import Float, ForeignKey, Index, String, UniqueConstraint, func
+from sqlalchemy import Date, Float, ForeignKey, Index, String, UniqueConstraint, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -19,8 +19,8 @@ class StatementModel(Base):
     account_holder: Mapped[str] = mapped_column(String, nullable=False)
     card_number_masked: Mapped[str] = mapped_column(String, nullable=False)
     card_type: Mapped[str | None] = mapped_column(String)
-    cut_off_date: Mapped[str] = mapped_column(String, nullable=False)
-    payment_due_date: Mapped[str | None] = mapped_column(String)
+    cut_off_date: Mapped[date] = mapped_column(Date, nullable=False)
+    payment_due_date: Mapped[date | None] = mapped_column(Date)
     previous_balance_gtq: Mapped[float | None] = mapped_column(Float)
     purchases_gtq: Mapped[float | None] = mapped_column(Float)
     payments_gtq: Mapped[float | None] = mapped_column(Float)
@@ -45,8 +45,8 @@ class TransactionModel(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     statement_id: Mapped[int] = mapped_column(ForeignKey("statements.id"), nullable=False)
-    operation_date: Mapped[str] = mapped_column(String, nullable=False)
-    consumption_date: Mapped[str] = mapped_column(String, nullable=False)
+    operation_date: Mapped[date] = mapped_column(Date, nullable=False)
+    consumption_date: Mapped[date] = mapped_column(Date, nullable=False)
     description: Mapped[str] = mapped_column(String, nullable=False)
     amount: Mapped[float] = mapped_column(Float, nullable=False)
     currency: Mapped[str] = mapped_column(String, nullable=False)
