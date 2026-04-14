@@ -2,7 +2,9 @@ import logging
 from pathlib import Path
 from typing import Literal
 
+from langchain_community.agent_toolkits import SQLDatabaseToolkit
 from langchain_community.document_loaders import PyPDFLoader
+from langchain_community.utilities import SQLDatabase
 from langchain_core.messages import AIMessage
 from langgraph.config import get_stream_writer
 from langgraph.types import Command, interrupt
@@ -11,12 +13,17 @@ from pydantic import BaseModel, Field
 from agents.extraction import extract_structured_data
 from agents.graph_state import FinancialAssistantState
 from agents.llm import get_llm
-from agents.tools import fetch_all_statements, fetch_statement_transactions
 from db.cruds import save_statement, statement_exists
+from db.database import DATABASE_URL
 
 llm = get_llm()
 
 FILES_DIRECTORY = Path(__file__).parent.parent / "pdf-to-process"
+
+
+db = SQLDatabase.from_uri(DATABASE_URL)
+toolkit = SQLDatabaseToolkit(db=db, llm=llm)
+sql_tools = toolkit.get_tools()
 
 
 class IntentClassification(BaseModel):
@@ -89,7 +96,8 @@ def extract_files_node(state: FinancialAssistantState) -> dict:
 
 
 def query_node(state: FinancialAssistantState) -> dict:
-    llm_with_tools = llm.bind_tools([fetch_statement_transactions, fetch_all_statements])
+    llm_with_tools = llm.bind_tools(sql_tools)
+
     response = llm_with_tools.invoke(state["messages"])
     return {"messages": [response]}
 
