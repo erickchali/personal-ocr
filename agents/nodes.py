@@ -10,10 +10,17 @@ from langgraph.config import get_stream_writer
 from langgraph.types import Command, interrupt
 from pydantic import BaseModel, Field
 
+from agents.embeddings import embed_texts
 from agents.extraction import extract_structured_data
 from agents.graph_state import FinancialAssistantState
 from agents.llm import get_llm
-from db.cruds import save_statement, statement_exists
+from agents.tools import search_transactions
+from db.cruds import (
+    get_transactions_missing_embeddings,
+    save_statement,
+    set_transaction_embeddings,
+    statement_exists,
+)
 from db.database import DATABASE_READ_URL
 
 llm = get_llm()
@@ -23,19 +30,24 @@ FILES_DIRECTORY = Path(__file__).parent.parent / "pdf-to-process"
 
 read_only_db = SQLDatabase.from_uri(DATABASE_READ_URL)
 toolkit = SQLDatabaseToolkit(db=read_only_db, llm=llm)
-sql_tools = toolkit.get_tools()
+sql_tools = toolkit.get_tools() + [search_transactions]
 
 QUERY_SYSTEM_PROMPT = (
     "You are a financial data analyst. You have access to tools that let you inspect "
     "database schema and run SQL queries against a PostgreSQL database containing "
-    "credit card statements and transactions.\n\n"
+    "credit card statements and transactions, plus a semantic search tool over "
+    "transaction descriptions.\n\n"
     "Rules:\n"
     "- Only generate SELECT queries. Never generate INSERT, UPDATE, DELETE, DROP, ALTER, "
     "TRUNCATE, or any write/modify operations.\n"
-    "- Always inspect the schema before writing a query.\n"
+    "- Always inspect the schema before writing a SQL query.\n"
     "- Use proper date functions (EXTRACT, TO_CHAR) for date columns.\n"
     "- Format monetary amounts with 2 decimal places.\n"
-    "- If a query fails, read the error and try a corrected query."
+    "- If a query fails, read the error and try a corrected query.\n"
+    "- Prefer `search_transactions` when the user asks categorical or fuzzy questions "
+    "(e.g. 'food delivery', 'streaming services') where exact string match on the "
+    "description would miss relevant rows. Use SQL for aggregates, date/amount filters, "
+    "and anything involving statement-level data."
 )
 
 
@@ -154,4 +166,14 @@ def save_files_node(state: FinancialAssistantState) -> dict:
             processed += 1
         else:
             messages.append("Statement already exists.")
+
+    if processed:
+        pending = get_transactions_missing_embeddings()
+        if pending:
+            writer({"status": f"Embedding {len(pending)} new transactions"})
+            ids = [row[0] for row in pending]
+            descriptions = [row[1] for row in pending]
+            vectors = embed_texts(descriptions)
+            set_transaction_embeddings(dict(zip(ids, vectors, strict=True)))
+
     return {"messages": [AIMessage(content="\n".join(messages))], "processed_count": processed}

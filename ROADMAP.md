@@ -27,6 +27,7 @@ Transform the PDF processor into a multi-node LangGraph financial assistant chat
 | **6** | Streaming + LangSmith monitoring | Done |
 | **7** | (Stretch) LangGraph Studio + deployment | Pending |
 | **8** | Postgres + SQLAlchemy + Alembic + SQL Agent | Done |
+| **9** | RAG: pgvector + semantic search over transactions | Done |
 
 ---
 
@@ -224,6 +225,40 @@ Replaced SQLite with PostgreSQL, added ORM models, migrations, Pydantic response
 - **Alembic** — `revision --autogenerate`, `upgrade head`, `postgresql_using` for type migrations
 - **Text-to-SQL** — LLM inspects schema and writes queries to answer natural language questions
 - **Layered security** — system prompts + database-level access control
+
+---
+
+## Phase 9: RAG — Done
+
+Added semantic search over transaction descriptions so the assistant can answer fuzzy, categorical questions ("show me my food delivery charges") that exact SQL string match would miss.
+
+### What was built
+
+- **pgvector extension + embedding column** — `alembic/versions/4eac27c5dd34_*.py` enables the `vector` extension and adds `transactions.embedding VECTOR(1536)`.
+- **`agents/embeddings.py`** — thin factory around `OpenAIEmbeddings("text-embedding-3-small")` with `embed_text()` / `embed_texts()` helpers and an `lru_cache`'d client.
+- **`db/cruds.py`** — three new functions:
+  - `get_transactions_missing_embeddings()` — returns `(id, description)` for rows where embedding is null
+  - `set_transaction_embeddings(id_to_vector)` — bulk update
+  - `search_transactions_by_embedding(vec, limit)` — ordered by `embedding.cosine_distance(vec)`
+- **`scripts/backfill_embeddings.py`** — one-shot backfill for existing rows, batched at 100 per OpenAI call.
+- **`agents/tools.py`** — `search_transactions` `@tool` that embeds the user's query and returns matching transactions as JSON.
+- **`save_files_node`** — after saving new statements, embeds any transactions missing a vector so the index stays fresh.
+- **Query node** — the new tool is added to the toolkit list; the system prompt tells the LLM when to prefer semantic search over SQL.
+
+### Key design decisions
+
+- **Cosine distance over L2** — descriptions are short; direction (meaning) matters more than magnitude.
+- **Embed descriptions only, not full rows** — rest of the columns are already SQL-queryable. Embeddings are for the *fuzzy* dimension.
+- **Backfill as a script, embed-on-save in the graph** — one-off work stays off the hot path; new data is kept consistent automatically.
+- **OpenAI `text-embedding-3-small`** — 1536 dims, cheap, strong quality. Matches `LLM_PROVIDER=openai` already configured.
+- **Keep both SQL tools and semantic search** — SQL wins for aggregates/dates/amounts, semantic search wins for categorical queries. The LLM picks per question.
+
+### Concepts practiced
+
+- **Embeddings + vector search** — turning text into geometry so "similar in meaning" becomes "close in space"
+- **pgvector** — storing vectors in Postgres, native cosine / L2 / inner-product distance operators
+- **RAG retrieval step** — embed query → top-k search → feed results into LLM context
+- **Hybrid retrieval** — combining structured (SQL) and unstructured (vector) search in one agentic loop
 
 ---
 

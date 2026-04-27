@@ -60,22 +60,25 @@ This project follows a specific learning workflow. **Do not skip it.**
 ```
 langchain-learning/
 ├── agents/
+│   ├── embeddings.py       # OpenAI embedding factory (text-embedding-3-small, 1536d)
 │   ├── extraction.py       # LLM-based PDF data extraction (structured output)
 │   ├── graph.py            # StateGraph definition — exposes builder + compiled graph
 │   ├── graph_state.py      # FinancialAssistantState TypedDict
 │   ├── llm.py              # Configurable LLM factory (Google/OpenAI/Anthropic)
 │   ├── models.py           # Pydantic models: CreditCardStatement, Transaction, etc.
 │   ├── nodes.py            # Node functions: router, list_files, process_files, query, respond
-│   ├── tools.py            # @tool-decorated query functions for the agentic loop
+│   ├── tools.py            # @tool-decorated query functions for the agentic loop (incl. semantic search)
 │   └── pdf_reader_agent.py # LEGACY: original create_agent implementation (keep as reference)
 ├── db/
-│   ├── cruds.py            # Database operations: save, query, check duplicates
+│   ├── cruds.py            # Database operations: save, query, embeddings, semantic search
 │   ├── database.py         # SQLAlchemy engine + session factory (reads DATABASE_URL)
-│   ├── models.py           # SQLAlchemy ORM models: StatementModel, TransactionModel
+│   ├── models.py           # SQLAlchemy ORM models: StatementModel, TransactionModel (with Vector)
 │   └── schemas.py          # Pydantic response schemas for DB layer output
 ├── alembic/
 │   ├── env.py              # Alembic config (reads DATABASE_URL, imports Base metadata)
 │   └── versions/           # Auto-generated migration scripts
+├── scripts/
+│   └── backfill_embeddings.py # One-shot: embed any transactions missing a vector
 ├── pdf-to-process/         # Drop PDF bank statements here for processing
 ├── .github/workflows/
 │   └── lint.yml            # CI: ruff check + format on PRs to main
@@ -159,6 +162,9 @@ uv run alembic upgrade head
 
 # Generate a new migration after changing db/models.py
 uv run alembic revision --autogenerate -m "describe the change"
+
+# Backfill embeddings for any transactions that don't have one yet
+uv run python -m scripts.backfill_embeddings
 ```
 
 ---
@@ -200,6 +206,7 @@ See `ROADMAP.md` for the detailed phase-by-phase plan.
 | 6 | Streaming + LangSmith monitoring | Done    |
 | 7 | LangGraph Studio + deployment | Pending |
 | 8 | Postgres + SQLAlchemy + Alembic + SQL Agent | Done    |
+| 9 | RAG: pgvector + semantic search over transactions | Done    |
 
 ---
 

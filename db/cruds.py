@@ -1,6 +1,6 @@
 from datetime import date
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 
 from agents.models import CreditCardStatement
 from db.database import SessionLocal
@@ -89,3 +89,34 @@ def get_all_statements() -> list[StatementListItem]:
         results = session.execute(stmt).scalars().all()
 
         return [StatementListItem.model_validate(s) for s in results]
+
+
+def get_transactions_missing_embeddings() -> list[tuple[int, str]]:
+    """Return (id, description) pairs for transactions without an embedding yet."""
+    with SessionLocal() as session:
+        stmt = select(TransactionModel.id, TransactionModel.description).where(TransactionModel.embedding.is_(None))
+        return [(row[0], row[1]) for row in session.execute(stmt).all()]
+
+
+def set_transaction_embeddings(id_to_vector: dict[int, list[float]]) -> int:
+    """Bulk-write embeddings for the given transaction ids. Returns rows updated."""
+    if not id_to_vector:
+        return 0
+    with SessionLocal() as session:
+        for txn_id, vector in id_to_vector.items():
+            session.execute(update(TransactionModel).where(TransactionModel.id == txn_id).values(embedding=vector))
+        session.commit()
+        return len(id_to_vector)
+
+
+def search_transactions_by_embedding(query_embedding: list[float], limit: int = 10) -> list[TransactionResponse]:
+    """Nearest-neighbor search by cosine distance on transaction embeddings."""
+    with SessionLocal() as session:
+        stmt = (
+            select(TransactionModel)
+            .where(TransactionModel.embedding.is_not(None))
+            .order_by(TransactionModel.embedding.cosine_distance(query_embedding))
+            .limit(limit)
+        )
+        results = session.execute(stmt).scalars().all()
+        return [TransactionResponse.model_validate(t) for t in results]

@@ -1,7 +1,10 @@
 from datetime import date, datetime
 
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import Date, Float, ForeignKey, Index, String, UniqueConstraint, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+
+EMBEDDING_DIM = 1536
 
 
 class Base(DeclarativeBase):
@@ -52,5 +55,6 @@ class TransactionModel(Base):
     currency: Mapped[str] = mapped_column(String, nullable=False)
     transaction_type: Mapped[str] = mapped_column(String, nullable=False)
     credit_card_reference: Mapped[str | None] = mapped_column(String)
+    embedding: Mapped[list[float] | None] = mapped_column(Vector(EMBEDDING_DIM))
 
     statement: Mapped["StatementModel"] = relationship(back_populates="transactions")

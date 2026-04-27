@@ -1,6 +1,11 @@
 from langchain_core.tools import tool
 
-from db.cruds import get_all_statements, get_statement
+from agents.embeddings import embed_text
+from db.cruds import (
+    get_all_statements,
+    get_statement,
+    search_transactions_by_embedding,
+)
 
 
 @tool
@@ -29,3 +34,24 @@ def fetch_all_statements() -> str | None:
     if statement_data:
         return "[" + ",".join(s.model_dump_json() for s in statement_data) + "]"
     return None
+
+
+@tool
+def search_transactions(query: str, limit: int = 10) -> str:
+    """Semantic search over transaction descriptions.
+
+    Use this when the user asks about spending in a fuzzy / categorical way
+    (e.g. "food delivery", "streaming services", "gas stations") and exact
+    string matching on the description would miss relevant transactions.
+    For questions that need aggregates, totals, or filters on dates/amounts,
+    prefer the SQL tools instead.
+
+    Args:
+        query: Natural language description of what to find.
+        limit: Max number of nearest matches to return (default 10).
+    """
+    vector = embed_text(query)
+    matches = search_transactions_by_embedding(vector, limit=limit)
+    if not matches:
+        return "[]"
+    return "[" + ",".join(m.model_dump_json() for m in matches) + "]"
