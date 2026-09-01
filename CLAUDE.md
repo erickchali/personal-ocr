@@ -31,7 +31,7 @@ This project follows a specific learning workflow. **Do not skip it.**
    This is a learning project — understanding the reasoning is as important as the code.
 6. **Ground suggestions in official docs** — When suggesting or explaining LangChain/LangGraph/LangSmith
    code, always check the official documentation first using the `docs-langchain` MCP server
-   (`search_docs_by_lang_chain` and `get_page_docs_by_lang_chain`). APIs evolve fast and prebuilts get
+   (`search_docs_by_lang_chain` and `query_docs_filesystem_docs_by_lang_chain`). APIs evolve fast and prebuilts get
    deprecated (e.g., `create_react_agent` → `create_agent`). Cite the relevant doc page so the developer
    can read further. Never rely solely on training data for framework-specific patterns.
 
@@ -42,10 +42,10 @@ This project follows a specific learning workflow. **Do not skip it.**
 | Tool | Purpose | Version |
 |------|---------|---------|
 | Python | Language | 3.12+ |
-| LangGraph | Graph orchestration (StateGraph, nodes, edges) | >=1.0.3 |
-| LangChain | LLM integrations, tools | >=1.1.3 |
-| LangSmith | Tracing and monitoring | >=0.4.43 |
-| Google Gemini | Default LLM (gemini-2.5-flash) | via langchain-google-genai |
+| LangGraph | Graph orchestration (StateGraph, nodes, edges) | >=1.2.11 |
+| LangChain | LLM integrations, tools | >=1.3.18 |
+| LangSmith | Tracing and monitoring | ==0.7.23 |
+| OpenRouter | Single LLM gateway — every model, one key | via langchain-openrouter |
 | PostgreSQL | Database (via pgvector/pgvector:pg16 Docker image) | 16 |
 | SQLAlchemy | ORM for database models and queries | >=2.0 |
 | Alembic | Database migration framework | latest |
@@ -58,12 +58,12 @@ This project follows a specific learning workflow. **Do not skip it.**
 ## Project Structure
 
 ```
-langchain-learning/
+personal-ocr/
 ├── agents/
 │   ├── extraction.py       # LLM-based PDF data extraction (structured output)
 │   ├── graph.py            # StateGraph definition — exposes builder + compiled graph
 │   ├── graph_state.py      # FinancialAssistantState TypedDict
-│   ├── llm.py              # Configurable LLM factory (Google/OpenAI/Anthropic)
+│   ├── llm.py              # Per-role LLM factory over OpenRouter (see LLM_MODEL_* env vars)
 │   ├── models.py           # Pydantic models: CreditCardStatement, Transaction, etc.
 │   ├── nodes.py            # Node functions: router, list_files, process_files, query, respond
 │   ├── tools.py            # @tool-decorated query functions for the agentic loop
@@ -115,9 +115,29 @@ Pydantic models are immutable by default, which makes merging harder.
 ### Why Ruff instead of black + flake8?
 One tool for linting, formatting, and import sorting. 10-100x faster. Industry standard in 2025+.
 
-### Why SQLite?
-Simple, zero-config, file-based. Good for learning DB patterns without infrastructure setup.
-Phase 3+ could evolve to PostgreSQL or add a vector DB for semantic search.
+### Why OpenRouter instead of per-provider SDKs?
+The old factory dispatched on *vendor* (`LLM_PROVIDER=google|openai|anthropic`), so every model
+change meant a different Python class, a different package, and a different API key. OpenRouter
+speaks one API in front of every vendor, which collapses that axis: a model becomes a plain string
+like `google/gemini-2.5-pro` that lives in `.env`.
+
+That unlocks the real win — **models are chosen per role, not globally**. `agents/llm.py` maps a
+role (`extraction`, `router`, `query`, `respond`, `default`) to a model slug via `LLM_MODEL_<ROLE>`.
+The intent router does a trivial 3-way classification and runs on the cheapest tier; the text-to-SQL
+node needs the strongest tool-caller available. Before this, one shared `llm` served both.
+
+**Use `ChatOpenRouter` (via `init_chat_model("openrouter:<slug>")`), not `ChatOpenAI` with
+`base_url`.** Pointing `ChatOpenAI` at OpenRouter is a common shortcut, and the
+[docs warn against it](https://docs.langchain.com/oss/python/langchain/models#base-url-and-proxy-settings):
+`ChatOpenAI` targets the OpenAI spec only, so it silently drops non-standard response fields
+(`reasoning`, `reasoning_details`) and OpenRouter routing metadata. It also breaks
+[model profiles](https://docs.langchain.com/oss/python/langchain/models#model-profiles), which
+`create_agent` reads to auto-pick `ProviderStrategy` vs `ToolStrategy` for structured output.
+
+### Why PostgreSQL?
+Started on SQLite for zero-config learning, moved to Postgres in Phase 8 to teach real migration
+and connection patterns (Alembic, a read-only role for the SQL agent, pgvector available for future
+semantic search). Runs via the `pgvector/pgvector:pg16` Docker image.
 
 ### All functions that return data must have a Pydantic response schema
 Never return raw dicts from functions. Define a Pydantic model in the appropriate schemas file
@@ -175,8 +195,11 @@ Required keys:
 - `LANGSMITH_API_KEY` — for tracing (get from smith.langchain.com)
 - `LANGSMITH_TRACING=true`
 - `LANGSMITH_PROJECT=learning-path`
-- One of: `GOOGLE_API_KEY`, `OPENAI_API_KEY`, or `ANTHROPIC_API_KEY`
-- `LLM_PROVIDER=google` (or `openai` or `anthropic`)
+- `OPENROUTER_API_KEY` — the only LLM key needed (get from openrouter.ai/keys)
+
+Optional — pick the model per scenario. Each takes an OpenRouter model slug and falls back to
+`LLM_MODEL_DEFAULT`, then to the built-in default in `agents/llm.py`:
+- `LLM_MODEL_DEFAULT`, `LLM_MODEL_EXTRACTION`, `LLM_MODEL_ROUTER`, `LLM_MODEL_QUERY`, `LLM_MODEL_RESPOND`
 
 Install dependencies:
 ```bash
