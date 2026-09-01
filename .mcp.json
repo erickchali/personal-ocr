@@ -1,0 +1,6 @@
+{
+    "langchain-docs": {
+      "type": "http",
+      "url": "https://docs.langchain.com/mcp"
+    }
+}
