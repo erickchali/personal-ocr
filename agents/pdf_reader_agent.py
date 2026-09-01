@@ -8,8 +8,9 @@ from langchain.tools import ToolRuntime
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_core.messages import HumanMessage, ToolMessage
 from langchain_core.tools import tool
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.types import Command
+
+from agents.llm import get_llm
 
 # Import our Pydantic models
 from agents.models import CreditCardStatement, OCRCustomState
@@ -146,14 +147,7 @@ def read_pdf_content(
     return Command(update={"messages": [message]})
 
 
-# model = ChatOpenAI(
-#     model="gpt-5-mini",
-#     temperature=0,
-# )
-model = ChatGoogleGenerativeAI(
-    model="gemini-2.5-flash",
-    max_retries=2,
-)
+model = get_llm("extraction")
 
 agent = create_agent(
     model=model,
@@ -180,7 +174,7 @@ def extract_structured_data(pdf_content: str) -> CreditCardStatement:
     """
     # Create a model specifically for structured extraction
     # with_structured_output() constrains the LLM to return our exact schema
-    extraction_model = model.with_structured_output(CreditCardStatement)
+    extraction_model = model.with_structured_output(CreditCardStatement, method="json_schema")
 
     extraction_prompt = """Extract all information from this credit card statement.
 

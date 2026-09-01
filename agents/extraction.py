@@ -3,7 +3,7 @@ from langsmith import traceable
 from agents.llm import get_llm
 from agents.models import CreditCardStatement
 
-llm = get_llm("google")
+llm = get_llm("extraction")
 
 
 @traceable
@@ -17,7 +17,8 @@ def extract_structured_data(pdf_content: str) -> CreditCardStatement:
     Returns:
         CreditCardStatement: Validated Pydantic model with all extracted data
     """
-    extraction_model = llm.with_structured_output(CreditCardStatement)
+    # json_schema support varies by model; drop the kwarg to fall back to function_calling.
+    extraction_model = llm.with_structured_output(CreditCardStatement, method="json_schema")
 
     extraction_prompt = """Extract all information from this credit card statement.
 

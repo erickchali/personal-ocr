@@ -16,13 +16,16 @@ from agents.llm import get_llm
 from db.cruds import save_statement, statement_exists
 from db.database import DATABASE_READ_URL
 
-llm = get_llm()
+router_llm = get_llm("router")
+query_llm = get_llm("query")
+respond_llm = get_llm("respond")
 
 FILES_DIRECTORY = Path(__file__).parent.parent / "pdf-to-process"
 
 
 read_only_db = SQLDatabase.from_uri(DATABASE_READ_URL)
-toolkit = SQLDatabaseToolkit(db=read_only_db, llm=llm)
+# query_llm, not router_llm: the toolkit's query-checker writes SQL itself.
+toolkit = SQLDatabaseToolkit(db=read_only_db, llm=query_llm)
 sql_tools = toolkit.get_tools()
 
 QUERY_SYSTEM_PROMPT = (
@@ -54,7 +57,7 @@ class IntentClassification(BaseModel):
 def router_node(state: FinancialAssistantState) -> dict:
     """Classify the user's intent from their last message."""
     last_message = state["messages"][-1]
-    classifier = llm.with_structured_output(IntentClassification)
+    classifier = router_llm.with_structured_output(IntentClassification)
     result = classifier.invoke(
         f"Classify this user message into one of: upload, query, chat.\n\nMessage: {last_message.content}"
     )
@@ -109,7 +112,7 @@ def extract_files_node(state: FinancialAssistantState) -> dict:
 
 
 def query_node(state: FinancialAssistantState) -> dict:
-    llm_with_tools = llm.bind_tools(sql_tools)
+    llm_with_tools = query_llm.bind_tools(sql_tools)
     messages = [SystemMessage(content=QUERY_SYSTEM_PROMPT)] + state["messages"]
     response = llm_with_tools.invoke(messages)
     return {"messages": [response]}
@@ -117,7 +120,7 @@ def query_node(state: FinancialAssistantState) -> dict:
 
 def respond_node(state: FinancialAssistantState) -> dict:
     """Generate a conversational response using the full message history."""
-    response = llm.invoke(state["messages"])
+    response = respond_llm.invoke(state["messages"])
     return {"messages": [response]}
 
 

@@ -38,7 +38,7 @@ Transform the PDF processor into a multi-node LangGraph financial assistant chat
 ## Phase 1: StateGraph Skeleton — Done
 
 - `agents/graph_state.py` — `FinancialAssistantState` with messages + intent
-- `agents/llm.py` — Configurable LLM factory (Google/OpenAI/Anthropic)
+- `agents/llm.py` — Per-role LLM factory over OpenRouter (`LLM_MODEL_<ROLE>` env vars)
 - `agents/nodes.py` — Router node with structured output, stub nodes, respond node
 - `agents/graph.py` — StateGraph with conditional edges routing by intent
 - `main.py` — Interactive CLI chat loop
