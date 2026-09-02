@@ -1,12 +1,10 @@
-import os
 from functools import cache
 from typing import Literal
 
-from dotenv import load_dotenv
 from langchain.chat_models import init_chat_model
 from langchain_core.language_models import BaseChatModel
 
-load_dotenv()
+from config import settings
 
 LLMRole = Literal["default", "extraction", "router", "query", "respond"]
 
@@ -30,7 +28,7 @@ def resolve_model(role: LLMRole = "default") -> str:
     if role not in DEFAULT_MODELS:
         raise ValueError(f"Unknown LLM role {role!r}. Expected one of {sorted(DEFAULT_MODELS)}.")
 
-    return os.getenv(f"LLM_MODEL_{role.upper()}") or os.getenv("LLM_MODEL_DEFAULT") or DEFAULT_MODELS[role]
+    return settings.model_for_role(role) or DEFAULT_MODELS[role]
 
 
 @cache
@@ -39,7 +37,7 @@ def get_llm(role: LLMRole = "default") -> BaseChatModel:
 
     Cached per role, so changing an LLM_MODEL_* value needs a process restart.
     """
-    if not os.getenv("OPENROUTER_API_KEY"):
+    if not settings.OPENROUTER_API_KEY:
         raise RuntimeError(
             "OPENROUTER_API_KEY is not set. Copy .env.example to .env and add your key from openrouter.ai/keys."
         )

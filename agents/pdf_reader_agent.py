@@ -2,7 +2,6 @@ import logging
 import uuid
 from pathlib import Path
 
-from dotenv import load_dotenv
 from langchain.agents import create_agent
 from langchain.tools import ToolRuntime
 from langchain_community.document_loaders import PyPDFLoader
@@ -15,8 +14,6 @@ from agents.graph_state import OCRCustomState
 from agents.llm import get_llm
 from db.cruds import save_statement, statement_exists
 from domain.models import CreditCardStatement
-
-load_dotenv()
 
 PDF_DIRECTORY = Path(__file__).parent.parent / "pdf-to-process"
 

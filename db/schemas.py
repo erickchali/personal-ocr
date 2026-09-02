@@ -46,6 +46,8 @@ class StatementSummaryResponse(BaseModel):
     minimum_payment_gtq: float | None = None
     annual_interest_rate: float | None = None
     created_at: datetime | None = None
+    status: str = "pending"
+    object_key: str | None = None
 
 
 class StatementDetailResponse(BaseModel):
@@ -63,3 +65,4 @@ class StatementListItem(BaseModel):
     cut_off_date: date
     current_balance_gtq: float | None = None
     created_at: datetime | None = None
+    status: str = "pending"

@@ -31,6 +31,8 @@ dependencies = [
     "sqlalchemy>=2.0.45",
     "psycopg2-binary>=2.9.11",
     "alembic>=1.18.4",
+    "boto3>=1.43.85",
+    "pydantic-settings>=2.12.0",
 ]
 
 [build-system]
@@ -38,7 +40,7 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-include = ["agents*", "db*", "domain*"]
+include = ["agents*", "api*", "config*", "db*", "domain*"]
 
 [dependency-groups]
 dev = [

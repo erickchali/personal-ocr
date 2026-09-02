@@ -1,13 +1,10 @@
 import uuid
 
-from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.types import Command
 
 from agents.graph import builder
-
-load_dotenv()
 
 
 def main():

@@ -32,6 +32,16 @@ class StatementModel(Base):
     annual_interest_rate: Mapped[float | None] = mapped_column(Float)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
+    # Ingestion provenance. file_sha256 is the cheap idempotency key: it is checked before
+    # extraction runs, so re-uploading a byte-identical PDF costs no LLM call. Nullable
+    # because rows predating the upload pipeline have no source file; Postgres allows
+    # multiple NULLs under a unique constraint.
+    object_key: Mapped[str | None] = mapped_column(String)
+    file_sha256: Mapped[str | None] = mapped_column(String(64), unique=True)
+    # Durable stand-in for the graph's old interrupt() gate — a background task has no
+    # human to pause for, so the pending row *is* the paused state.
+    status: Mapped[str] = mapped_column(String, nullable=False, server_default="pending")
+
     transactions: Mapped[list["TransactionModel"]] = relationship(
         back_populates="statement", cascade="all, delete-orphan"
     )
