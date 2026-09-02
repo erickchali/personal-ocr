@@ -10,10 +10,7 @@ class Base(DeclarativeBase):
 
 class StatementModel(Base):
     __tablename__ = "statements"
-    __table_args__ = (
-        UniqueConstraint("card_number_masked", "cut_off_date", name="uq_statement"),
-        Index("idx_transactions_statement_id", "id"),
-    )
+    __table_args__ = (UniqueConstraint("card_number_masked", "cut_off_date", name="uq_statement"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     account_holder: Mapped[str] = mapped_column(String, nullable=False)
@@ -42,6 +39,9 @@ class StatementModel(Base):
 
 class TransactionModel(Base):
     __tablename__ = "transactions"
+    # Indexes the FK actually joined on. Previously declared on StatementModel against
+    # "id", where it only duplicated that table's primary key.
+    __table_args__ = (Index("idx_transactions_statement_id", "statement_id"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     statement_id: Mapped[int] = mapped_column(ForeignKey("statements.id"), nullable=False)

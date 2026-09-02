@@ -25,8 +25,14 @@ Transform the PDF processor into a multi-node LangGraph financial assistant chat
 | **4** | Checkpointing + multi-turn conversation | Done |
 | **5** | Human-in-the-loop approval | Done |
 | **6** | Streaming + LangSmith monitoring | Done |
-| **7** | (Stretch) LangGraph Studio + deployment | Pending |
+| **7** | LangGraph Studio + LangSmith tracing | Done |
 | **8** | Postgres + SQLAlchemy + Alembic + SQL Agent | Done |
+| **8.5** | OpenRouter gateway + per-role model selection | Done |
+| **9** | Split ingestion out of the graph | Done |
+| **10** | Ingestion pipeline: MinIO + hash-based idempotency | Pending |
+| **11** | FastAPI: uploads, statements, metrics | Pending |
+| **12** | Next.js app on Agent Chat UI (`useStream`) | Pending |
+| **13** | (Optional) Metabase connected to Postgres | Pending |
 
 ---
 
@@ -227,6 +233,97 @@ Replaced SQLite with PostgreSQL, added ORM models, migrations, Pydantic response
 
 ---
 
-## Phase 7: Coming Soon
+## Phase 8.5: OpenRouter — Done
 
-- **Phase 7**: Configure `langgraph.json` for LangGraph Studio local deployment
+- `agents/llm.py` — factory now dispatches on **role**, not vendor. `resolve_model(role)` reads
+  `LLM_MODEL_<ROLE>` → `LLM_MODEL_DEFAULT` → built-in default; `get_llm(role)` builds it via
+  `init_chat_model(slug, model_provider="openrouter")`.
+- Dropped `langchain-openai`, `-anthropic`, `-google-genai`, `-google-vertexai`. One
+  `OPENROUTER_API_KEY` replaces three vendor keys.
+- Both entry points migrated: `agents/nodes.py` (three role LLMs) and `agents/pdf_reader_agent.py`.
+
+### Key design decisions
+
+- **`ChatOpenRouter`, not `ChatOpenAI` + `base_url`** — the latter targets the OpenAI spec only and
+  silently drops `reasoning` fields, routing metadata, and model profiles.
+- **Roles beat providers** — the router classifies 3 ways and runs on the cheapest tier; the SQL node
+  needs the strongest tool-caller. One shared `llm` previously served both.
+- **Failures are loud** — unknown role raises `ValueError`, missing key raises `RuntimeError`. The
+  old factory fell off the end and returned `None`.
+
+---
+
+## Phase 9: Split Ingestion Out of the Graph — Done
+
+The graph conflated a *deterministic pipeline* (ingestion) with an *agentic loop* (Q&A) behind one
+LLM intent classifier. Uploading isn't a conversational act — it's an event — so classifying it cost
+an LLM call to detect something a function call can just state.
+
+- `agents/graph.py` — removed `list_files`, `extract_files`, `approval`, `cancel`, `save_files`.
+  Nine nodes → four: `router → query ⇄ tools → respond`.
+- `agents/nodes.py` — deleted the five ingestion nodes and their imports.
+- `agents/graph_state.py` — dropped `pending_files`, `pending_statements`, `processed_count`.
+- Deleted `agents/legacy_nodes.py` and `agents/tools.py` (both already unreferenced).
+
+### Bugs fixed
+
+- **Query path skipped `respond`** — `tools_condition` mapped `END → END`, so the user saw
+  `query_node`'s raw output. Now `{END: "respond"}`.
+- **`intent` was an unconstrained `str`** — legal values lived only in the `Field` description, so
+  the schema didn't constrain the model. Now `Literal["query", "chat"]`.
+- **`idx_transactions_statement_id` indexed the wrong table** — declared on `StatementModel` against
+  `"id"`, duplicating that PK. Moved to `TransactionModel` against `statement_id`, the FK actually
+  joined on. **Needs a migration** — folded into Phase 10.
+
+### Concepts practiced
+
+- **Pipelines vs agents** — use a graph where the LLM genuinely decides; use plain code where the
+  flow is fixed. The router's job shrank from 3 intents to 2.
+- **`Literal` in structured output** — constraining the schema beats describing constraints in prose.
+
+---
+
+## Phase 10: Ingestion Pipeline — Pending
+
+- `file_sha256` unique column so a re-uploaded PDF costs **zero** LLM calls (today dedupe happens
+  *after* extraction, so duplicates burn a full `gemini-2.5-pro` call before being discarded)
+- `object_key` + `status` columns; `boto3` wrapper over MinIO
+- `try/except IntegrityError` around `save_statement` — the `uq_statement` constraint exists but has
+  no handler, so a race currently raises and kills the run
+- HITL moves from `interrupt()` to `status='pending'` + an approve endpoint
+
+## Phase 11: FastAPI — Pending
+
+`POST /uploads`, `GET /statements`, `POST /statements/{id}/approve`, `GET /metrics`. No chat route —
+that goes straight to `langgraph dev`.
+
+## Phase 12: Next.js App — Pending
+
+`npx create-agent-chat-app`, chat via `useStream` against `langgraph dev` on :2024, plus `/upload`
+and `/dashboard` routes hitting FastAPI. Stretch: generative UI via `push_ui_message`.
+
+## Phase 13: Metabase — Optional
+
+Connect it to the app's Postgres via the `query_reader` role (host `postgres:5432` from inside the
+compose network).
+
+---
+
+## Phase 7: LangGraph Studio + LangSmith — Done
+
+- `langgraph.json` registers both graphs — `financial_assistant` (the StateGraph) and
+  `pdf_reader_agent` (the legacy `create_agent` reference) — and declares `"env": ".env"`.
+- `agents/graph.py` exports an uncompiled `builder` **and** a `graph` compiled without a
+  checkpointer, so Studio can attach its own persistence while `main.py` compiles with
+  `InMemorySaver`. Avoids the "custom checkpointer conflicts with platform" error.
+- `uv run langgraph dev` serves both graphs with thread state in `.langgraph_api/`.
+- `.vscode/launch.json` runs the dev server under the debugger (`--no-reload`, since hot reload
+  respawns into a child process the debugger never attaches to).
+- LangSmith tracing is live via `LANGSMITH_*` in `.env`; traces land in the `learning-path` project.
+
+### Gotcha
+
+Cost attribution in LangSmith is derived by matching `ls_provider` + `ls_model_name` against its
+pricing table. Since Phase 8.5 that pair is `openrouter` + a slug like `anthropic/claude-sonnet-4.5`,
+which may not resolve — traces and token counts stay correct, but cost can read $0 until model
+prices are added under LangSmith's Model pricing settings.

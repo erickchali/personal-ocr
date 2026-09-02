@@ -221,8 +221,14 @@ See `ROADMAP.md` for the detailed phase-by-phase plan.
 | 4 | Checkpointing + multi-turn conversation | Done    |
 | 5 | Human-in-the-loop approval | Done    |
 | 6 | Streaming + LangSmith monitoring | Done    |
-| 7 | LangGraph Studio + deployment | Pending |
+| 7 | LangGraph Studio + LangSmith tracing | Done    |
 | 8 | Postgres + SQLAlchemy + Alembic + SQL Agent | Done    |
+| 8.5 | OpenRouter gateway + per-role model selection | Done    |
+| 9 | Split ingestion out of the graph | Done    |
+| 10 | Ingestion pipeline: MinIO + hash-based idempotency | Pending |
+| 11 | FastAPI: uploads, statements, metrics | Pending |
+| 12 | Next.js app on Agent Chat UI (`useStream`) | Pending |
+| 13 | (Optional) Metabase connected to Postgres | Pending |
 
 ---
 
