@@ -64,10 +64,10 @@ personal-ocr/
 │   ├── graph.py            # StateGraph definition — exposes builder + compiled graph
 │   ├── graph_state.py      # FinancialAssistantState TypedDict
 │   ├── llm.py              # Per-role LLM factory over OpenRouter (see LLM_MODEL_* env vars)
-│   ├── models.py           # Pydantic models: CreditCardStatement, Transaction, etc.
-│   ├── nodes.py            # Node functions: router, list_files, process_files, query, respond
-│   ├── tools.py            # @tool-decorated query functions for the agentic loop
+│   ├── nodes.py            # Node functions: router, query, respond
 │   └── pdf_reader_agent.py # LEGACY: original create_agent implementation (keep as reference)
+├── domain/
+│   └── models.py           # Shared vocabulary: CreditCardStatement, Transaction, etc.
 ├── db/
 │   ├── cruds.py            # Database operations: save, query, check duplicates
 │   ├── database.py         # SQLAlchemy engine + session factory (reads DATABASE_URL)

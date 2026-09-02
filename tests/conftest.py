@@ -7,12 +7,12 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from agents.models import (
+from db.models import Base
+from domain.models import (
     CreditCardStatement,
     StatementSummary,
     Transaction,
 )
-from db.models import Base
 
 TEST_DB_PATH = Path(__file__).parent / "test_statements.db"
 TEST_DATABASE_URL = f"sqlite:///{TEST_DB_PATH}"

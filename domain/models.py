@@ -1,5 +1,8 @@
 """
-Pydantic models for credit card statement extraction.
+Shared domain vocabulary for credit card statements.
+
+Depends on nothing else in the project, so every layer can import it without creating a
+cycle: the extraction agent produces these, db/ persists them, api/ serves them.
 
 WHY PYDANTIC?
 - Validation: Ensures LLM output matches expected schema
@@ -13,7 +16,6 @@ from decimal import Decimal
 from enum import StrEnum
 from typing import Annotated
 
-from langchain.agents import AgentState
 from pydantic import BaseModel, BeforeValidator, Field
 
 
@@ -32,10 +34,6 @@ def parse_guatemalan_date(value: str | date) -> date:
 
 
 GuatemalanDate = Annotated[date, BeforeValidator(parse_guatemalan_date)]
-
-
-class OCRCustomState(AgentState):
-    files_to_process: list[str] | None = []
 
 
 class Currency(StrEnum):

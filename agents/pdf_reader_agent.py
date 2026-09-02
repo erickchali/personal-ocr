@@ -10,11 +10,11 @@ from langchain_core.messages import HumanMessage, ToolMessage
 from langchain_core.tools import tool
 from langgraph.types import Command
 
-from agents.llm import get_llm
-
 # Import our Pydantic models
-from agents.models import CreditCardStatement, OCRCustomState
+from agents.graph_state import OCRCustomState
+from agents.llm import get_llm
 from db.cruds import save_statement, statement_exists
+from domain.models import CreditCardStatement
 
 load_dotenv()
 

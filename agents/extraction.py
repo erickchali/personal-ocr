@@ -1,7 +1,7 @@
 from langsmith import traceable
 
 from agents.llm import get_llm
-from agents.models import CreditCardStatement
+from domain.models import CreditCardStatement
 
 llm = get_llm("extraction")
 

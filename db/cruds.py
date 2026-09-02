@@ -2,7 +2,6 @@ from datetime import date
 
 from sqlalchemy import select
 
-from agents.models import CreditCardStatement
 from db.database import SessionLocal
 from db.models import StatementModel, TransactionModel
 from db.schemas import (
@@ -11,6 +10,7 @@ from db.schemas import (
     StatementSummaryResponse,
     TransactionResponse,
 )
+from domain.models import CreditCardStatement
 
 
 def save_statement(statement: CreditCardStatement) -> int:
