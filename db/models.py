@@ -1,5 +1,6 @@
 from datetime import date, datetime
 
+from pydantic import field_validator
 from sqlalchemy import Date, Float, ForeignKey, Index, String, UniqueConstraint, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -64,3 +65,8 @@ class TransactionModel(Base):
     credit_card_reference: Mapped[str | None] = mapped_column(String)
 
     statement: Mapped["StatementModel"] = relationship(back_populates="transactions")
+
+    @field_validator("amount")
+    @classmethod
+    def normalize_provider(cls, value: float) -> float:
+        return abs(value)

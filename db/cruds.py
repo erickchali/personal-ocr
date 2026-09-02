@@ -1,11 +1,13 @@
 from datetime import date
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
 from db.database import SessionLocal
 from db.models import StatementModel, TransactionModel
 from db.schemas import (
+    MetricsResponse,
+    MonthlySpend,
     StatementDetailResponse,
     StatementListItem,
     StatementSummaryResponse,
@@ -139,6 +141,49 @@ def get_all_statements(status: str | None = None) -> list[StatementListItem]:
         results = session.execute(stmt).scalars().all()
 
         return [StatementListItem.model_validate(s) for s in results]
+
+
+def get_metrics() -> MetricsResponse:
+    """Dashboard aggregates.
+
+    Uses extract() rather than to_char()/strftime() for the month grouping so the same
+    query runs on Postgres and on the SQLite test database.
+    """
+    with SessionLocal() as session:
+        purchases = _amount_total(session, "purchase")
+        payments = _amount_total(session, "payment")
+
+        year = func.extract("year", TransactionModel.consumption_date)
+        month = func.extract("month", TransactionModel.consumption_date)
+        rows = session.execute(
+            select(year, month, func.sum(TransactionModel.amount), func.count(TransactionModel.id))
+            .where(TransactionModel.currency == "GTQ", TransactionModel.transaction_type == "purchase")
+            .group_by(year, month)
+            .order_by(year, month)
+        ).all()
+
+        return MetricsResponse(
+            statement_count=session.execute(select(func.count(StatementModel.id))).scalar_one(),
+            transaction_count=session.execute(select(func.count(TransactionModel.id))).scalar_one(),
+            pending_count=session.execute(
+                select(func.count(StatementModel.id)).where(StatementModel.status == "pending")
+            ).scalar_one(),
+            total_purchases_gtq=purchases,
+            total_payments_gtq=payments,
+            latest_cut_off_date=session.execute(select(func.max(StatementModel.cut_off_date))).scalar_one(),
+            spend_by_month=[
+                MonthlySpend(month=f"{int(y):04d}-{int(m):02d}", total_gtq=float(total), transaction_count=count)
+                for y, m, total, count in rows
+            ],
+        )
+
+
+def _amount_total(session, transaction_type: str) -> float:
+    stmt = select(func.coalesce(func.sum(TransactionModel.amount), 0.0)).where(
+        TransactionModel.currency == "GTQ",
+        TransactionModel.transaction_type == transaction_type,
+    )
+    return float(session.execute(stmt).scalar_one())
 
 
 def statement_by_hash(file_sha256: str) -> StatementListItem | None:

@@ -34,19 +34,30 @@ def extract_pdf_text(data: bytes) -> str:
     return "\n\n".join(pages)
 
 
+def digest_of(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def already_ingested(digest: str) -> IngestResult | None:
+    """The cheap rung, on its own so callers can check before queueing work.
+
+    Costs one indexed lookup, which is why POST /uploads runs it inside the request
+    instead of deferring it — a duplicate gets an accurate answer immediately.
+    """
+    found = statement_by_hash(digest)
+    if not found:
+        return None
+    return IngestResult(statement_id=found.id, status=found.status, created=False, reason="duplicate_file")
+
+
 def ingest_pdf(filename: str, data: bytes) -> IngestResult:
     """Run one PDF through the pipeline. Safe to call repeatedly with the same bytes."""
-    digest = hashlib.sha256(data).hexdigest()
+    digest = digest_of(data)
 
-    already = statement_by_hash(digest)
+    already = already_ingested(digest)
     if already:
-        logger.info("%s already ingested as statement %s; skipping extraction", filename, already.id)
-        return IngestResult(
-            statement_id=already.id,
-            status=already.status,
-            created=False,
-            reason="duplicate_file",
-        )
+        logger.info("%s already ingested as statement %s; skipping extraction", filename, already.statement_id)
+        return already
 
     ensure_bucket()
     key = put_pdf(object_key_for(digest), data)

@@ -33,6 +33,8 @@ dependencies = [
     "alembic>=1.18.4",
     "boto3>=1.43.85",
     "pydantic-settings>=2.12.0",
+    "fastapi>=0.141.1",
+    "python-multipart>=0.0.32",
 ]
 
 [build-system]

@@ -55,6 +55,22 @@ class StatementDetailResponse(BaseModel):
     transactions: list[TransactionResponse]
 
 
+class MonthlySpend(BaseModel):
+    month: str  # "YYYY-MM"
+    total_gtq: float
+    transaction_count: int
+
+
+class MetricsResponse(BaseModel):
+    statement_count: int
+    transaction_count: int
+    pending_count: int
+    total_purchases_gtq: float
+    total_payments_gtq: float
+    latest_cut_off_date: date | None = None
+    spend_by_month: list[MonthlySpend] = []
+
+
 class StatementListItem(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

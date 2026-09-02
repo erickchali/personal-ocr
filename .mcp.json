@@ -1,6 +1,15 @@
 {
-    "langchain-docs": {
-      "type": "http",
-      "url": "https://docs.langchain.com/mcp"
+    "mcpServers": {
+        "langchain-docs": {
+        "type": "http",
+        "url": "https://docs.langchain.com/mcp"
+      },
+      "langsmith-personal": {
+        "type": "http",
+        "url": "https://api.smith.langchain.com/mcp",
+        "headers": {
+          "X-Api-Key": "${LANGSMITH_TOKEN_PERSONAL}"
+        }
+      }
     }
 }
