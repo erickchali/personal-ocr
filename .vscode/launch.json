@@ -2,8 +2,7 @@
   "version": "0.2.0",
   "configurations": [
     {
-      // integratedTerminal is required: main.py blocks on input() for chat
-      // and for the [y/n] approval prompt raised by approval_node.
+      // integratedTerminal is required: main.py blocks on input().
       "name": "Financial Assistant (CLI)",
       "type": "debugpy",
       "request": "launch",
@@ -14,17 +13,39 @@
       "justMyCode": false
     },
     {
-      // --no-reload matters: hot reload respawns the server in a child process
-      // that the debugger never attaches to, so breakpoints silently never hit.
+      // Reload serves from a child process, so "subProcess" is what binds breakpoints
+      // there. If they turn flaky right after a save, add "--no-reload".
       "name": "LangGraph dev server",
       "type": "debugpy",
       "request": "launch",
       "module": "langgraph_cli",
-      "args": ["dev", "--no-reload"],
+      "args": ["dev"],
       "cwd": "${workspaceFolder}",
       "console": "integratedTerminal",
       "envFile": "${workspaceFolder}/.env",
-      "justMyCode": false
+      "justMyCode": false,
+      "subProcess": true
+    },
+    {
+      // Breakpoints in api/ingestion.py hit inside BackgroundTasks too — same process.
+      "name": "API (FastAPI)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": ["api.main:app", "--port", "8082", "--reload"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "envFile": "${workspaceFolder}/.env",
+      "justMyCode": false,
+      "subProcess": true
+    }
+  ],
+  "compounds": [
+    {
+      // Phase 12 needs both: the SPA reads data from :8000 and streams chat from :2024.
+      "name": "Full stack (API + LangGraph)",
+      "configurations": ["API (FastAPI)", "LangGraph dev server"],
+      "stopAll": true
     }
   ]
 }

@@ -46,11 +46,29 @@ class StatementSummaryResponse(BaseModel):
     minimum_payment_gtq: float | None = None
     annual_interest_rate: float | None = None
     created_at: datetime | None = None
+    status: str = "pending"
+    object_key: str | None = None
 
 
 class StatementDetailResponse(BaseModel):
     summary: StatementSummaryResponse
     transactions: list[TransactionResponse]
+
+
+class MonthlySpend(BaseModel):
+    month: str  # "YYYY-MM"
+    total_gtq: float
+    transaction_count: int
+
+
+class MetricsResponse(BaseModel):
+    statement_count: int
+    transaction_count: int
+    pending_count: int
+    total_purchases_gtq: float
+    total_payments_gtq: float
+    latest_cut_off_date: date | None = None
+    spend_by_month: list[MonthlySpend] = []
 
 
 class StatementListItem(BaseModel):
@@ -63,3 +81,4 @@ class StatementListItem(BaseModel):
     cut_off_date: date
     current_balance_gtq: float | None = None
     created_at: datetime | None = None
+    status: str = "pending"

@@ -25,8 +25,20 @@ Transform the PDF processor into a multi-node LangGraph financial assistant chat
 | **4** | Checkpointing + multi-turn conversation | Done |
 | **5** | Human-in-the-loop approval | Done |
 | **6** | Streaming + LangSmith monitoring | Done |
-| **7** | (Stretch) LangGraph Studio + deployment | Pending |
+| **7** | LangGraph Studio + LangSmith tracing | Done |
 | **8** | Postgres + SQLAlchemy + Alembic + SQL Agent | Done |
+| **8.5** | OpenRouter gateway + per-role model selection | Done |
+| **9** | Split ingestion out of the graph | Done |
+| **10** | Ingestion pipeline: MinIO + hash-based idempotency | Done |
+| **11** | FastAPI: uploads, statements, metrics | Done |
+| **12** | Evaluation: datasets + reconciliation evaluators | Pending |
+| **13** | Model fallbacks for provider faults | Pending |
+| **14** | Persistent checkpointer (PostgresSaver) | Pending |
+| **15** | Semantic search over transactions (pgvector) | Pending |
+| **16** | Long-term memory across threads (Store) | Pending |
+| **17** | Prompt management in LangSmith | Pending |
+| **18** | Next.js app on Agent Chat UI (`useStream`) | Pending |
+| **19** | (Optional) Metabase connected to Postgres | Pending |
 
 ---
 
@@ -194,6 +206,27 @@ Replaced `graph.invoke()` with `graph.stream()` for real-time output and added c
 
 ---
 
+## Phase 7: LangGraph Studio + LangSmith — Done
+
+- `langgraph.json` registers both graphs — `financial_assistant` (the StateGraph) and
+  `pdf_reader_agent` (the legacy `create_agent` reference) — and declares `"env": ".env"`.
+- `agents/graph.py` exports an uncompiled `builder` **and** a `graph` compiled without a
+  checkpointer, so Studio can attach its own persistence while `main.py` compiles with
+  `InMemorySaver`. Avoids the "custom checkpointer conflicts with platform" error.
+- `uv run langgraph dev` serves both graphs with thread state in `.langgraph_api/`.
+- `.vscode/launch.json` runs the dev server under the debugger. Reload is on, so the code runs
+  in a child process — `"subProcess": true` is what binds breakpoints there.
+- LangSmith tracing is live via `LANGSMITH_*` in `.env`; traces land in the `learning-path` project.
+
+### Gotcha
+
+Cost attribution in LangSmith is derived by matching `ls_provider` + `ls_model_name` against its
+pricing table. Since Phase 8.5 that pair is `openrouter` + a slug like `anthropic/claude-sonnet-4.5`,
+which may not resolve — traces and token counts stay correct, but cost can read $0 until model
+prices are added under LangSmith's Model pricing settings.
+
+---
+
 ## Phase 8: Postgres + SQLAlchemy + Alembic + SQL Agent — Done
 
 Replaced SQLite with PostgreSQL, added ORM models, migrations, Pydantic response schemas, tests, and an LLM-powered SQL agent.
@@ -227,6 +260,199 @@ Replaced SQLite with PostgreSQL, added ORM models, migrations, Pydantic response
 
 ---
 
-## Phase 7: Coming Soon
+## Phase 8.5: OpenRouter — Done
 
-- **Phase 7**: Configure `langgraph.json` for LangGraph Studio local deployment
+- `agents/llm.py` — factory now dispatches on **role**, not vendor. `resolve_model(role)` reads
+  `LLM_MODEL_<ROLE>` → `LLM_MODEL_DEFAULT` → built-in default; `get_llm(role)` builds it via
+  `init_chat_model(slug, model_provider="openrouter")`.
+- Dropped `langchain-openai`, `-anthropic`, `-google-genai`, `-google-vertexai`. One
+  `OPENROUTER_API_KEY` replaces three vendor keys.
+- Both entry points migrated: `agents/nodes.py` (three role LLMs) and `agents/pdf_reader_agent.py`.
+
+### Key design decisions
+
+- **`ChatOpenRouter`, not `ChatOpenAI` + `base_url`** — the latter targets the OpenAI spec only and
+  silently drops `reasoning` fields, routing metadata, and model profiles.
+- **Roles beat providers** — the router classifies 3 ways and runs on the cheapest tier; the SQL node
+  needs the strongest tool-caller. One shared `llm` previously served both.
+- **Failures are loud** — unknown role raises `ValueError`, missing key raises `RuntimeError`. The
+  old factory fell off the end and returned `None`.
+
+---
+
+## Phase 9: Split Ingestion Out of the Graph — Done
+
+The graph conflated a *deterministic pipeline* (ingestion) with an *agentic loop* (Q&A) behind one
+LLM intent classifier. Uploading isn't a conversational act — it's an event — so classifying it cost
+an LLM call to detect something a function call can just state.
+
+- `agents/graph.py` — removed `list_files`, `extract_files`, `approval`, `cancel`, `save_files`.
+  Nine nodes → four: `router → query ⇄ tools → respond`.
+- `agents/nodes.py` — deleted the five ingestion nodes and their imports.
+- `agents/graph_state.py` — dropped `pending_files`, `pending_statements`, `processed_count`.
+- Deleted `agents/legacy_nodes.py` and `agents/tools.py` (both already unreferenced).
+
+### Bugs fixed
+
+- **Query path skipped `respond`** — `tools_condition` mapped `END → END`, so the user saw
+  `query_node`'s raw output. Now `{END: "respond"}`.
+- **`intent` was an unconstrained `str`** — legal values lived only in the `Field` description, so
+  the schema didn't constrain the model. Now `Literal["query", "chat"]`.
+- **`idx_transactions_statement_id` indexed the wrong table** — declared on `StatementModel` against
+  `"id"`, duplicating that PK. Moved to `TransactionModel` against `statement_id`, the FK actually
+  joined on. **Needs a migration** — folded into Phase 10.
+
+### Concepts practiced
+
+- **Pipelines vs agents** — use a graph where the LLM genuinely decides; use plain code where the
+  flow is fixed. The router's job shrank from 3 intents to 2.
+- **`Literal` in structured output** — constraining the schema beats describing constraints in prose.
+
+---
+
+## Phase 10: Ingestion Pipeline — Done
+
+MinIO finally wired up, and idempotency moved *above* the expensive step.
+
+- `db/models.py` — `object_key`, `file_sha256` (unique), `status` columns
+- `api/storage.py` — boto3 over MinIO; content-addressed keys (`statements/<sha256>.pdf`)
+- `api/ingestion.py` — `ingest_pdf()`: hash -> store -> parse -> extract -> save
+- `db/cruds.py` — `statement_by_hash`, `attach_source`, `approve_statement`, and a
+  `try/except IntegrityError` that raises `DuplicateStatementError` instead of dying
+
+### Three rungs, cheapest first
+
+| Check | Catches | Cost |
+|---|---|---|
+| `file_sha256` | identical file re-uploaded | free |
+| `uq_statement` | same statement, different file | one extraction |
+| `IntegrityError` handler | two uploads racing | one extraction |
+
+Measured: second upload of the same PDF went from 21.3s to 0.00s.
+
+### Gotcha found while building
+
+When rung two fires, the *existing* row has no hash recorded — so that file would pay for
+extraction on every future upload. `attach_source()` teaches the row its hash on the way
+out, and never overwrites one already set.
+
+### Concepts practiced
+
+- **Idempotency is about placement** — a check is only cheap if it runs before the
+  expensive call. The hash check is what makes a fire-and-forget background task safe.
+- **Check-then-act is not atomic** — `statement_exists()` and `save_statement()` use
+  separate sessions; only the DB constraint actually guarantees uniqueness.
+- **Async HITL** — `interrupt()` needs a human present. A background task has none, so the
+  pause becomes durable state: `status='pending'` plus an approve endpoint.
+
+---
+
+## Phase 11: FastAPI — Done
+
+- `api/main.py` — app, CORS for `localhost:3000`, `ensure_bucket()` on lifespan startup
+- `api/routers/` — `uploads`, `statements`, `metrics`
+- `POST /uploads` returns **202** and queues extraction via `BackgroundTasks`
+
+No chat route: the client streams from `langgraph dev` through `useStream`, which already
+handles streaming, threads and interrupts.
+
+### Key design decision
+
+The duplicate check runs **inside** the request while extraction runs after it. One indexed
+lookup is cheap enough to do inline, so a repeat upload gets a real answer (11ms, with the
+statement id) instead of a hopeful "accepted".
+
+### Concepts practiced
+
+- **202 Accepted** — the right code for "queued, not finished"
+- **`BackgroundTasks`** — runs in-process after the response; no broker, but dies with the
+  process. Acceptable only because ingestion is idempotent.
+- **Portable SQL** — `/metrics` groups months with `extract()` rather than `to_char()`, so
+  the same query runs on Postgres and the SQLite test DB.
+
+## Phase 12: Evaluation — Pending
+
+Tracing tells you *what happened*; evaluation tells you whether it was **right**. Extraction is
+graded by eye today — flash was chosen over pro on three manual runs and a human reading the output.
+
+- **Dataset** — the real statements in `pdf-to-process/`, which already cover two bank formats
+- **Reconciliation evaluators** — no labelling required, because the document asserts its own
+  arithmetic:
+  - `previous_balance + purchases - payments ≈ current_balance`
+  - `sum(transactions where type='purchase') ≈ purchases_gtq`
+  - `sum(transactions where type='payment') ≈ payments_gtq`
+- **Experiments** — change a model or prompt, re-run, compare scores side by side
+- **CI quality gate** — fail the build when extraction accuracy regresses
+
+Use **deterministic code evaluators, not LLM-as-judge**: for extraction the correct answer is
+knowable, so scoring it with another model only adds noise and cost. Dropping a transaction or
+misreading an amount breaks the totals — which is how the negative-amount bug would have been
+caught automatically.
+
+Docs: [quickstart](https://docs.langchain.com/langsmith/evaluation-quickstart),
+[custom code evaluators](https://docs.langchain.com/langsmith/bind-evaluator-to-dataset#custom-code-evaluators),
+[quality gate](https://docs.langchain.com/langsmith/read-local-experiment-results#implement-a-quality-gate).
+
+---
+
+## Phase 13: Model Fallbacks — Pending
+
+`.with_fallbacks()` so extraction fails over to a different model when a provider misbehaves.
+`agents/extraction.py` currently retries the **same** model, which does nothing for a provider-level
+fault like the empty responses seen from `gemini-2.5-pro` (see README Notes).
+
+Phase 12 is what proves the chain actually helps rather than assuming it.
+
+---
+
+## Phase 14: Persistent Checkpointer — Pending
+
+`main.py` compiles with `InMemorySaver`, so every conversation dies on restart. Swap in
+`PostgresSaver` (`langgraph-checkpoint-postgres`) against the database already running.
+
+Pulls psycopg v3 alongside the existing `psycopg2-binary` — they coexist, don't try to unify them.
+Phase 18 wants this anyway for persistent chat threads.
+
+---
+
+## Phase 15: Semantic Search Over Transactions — Pending
+
+`pgvector/pgvector:pg16` has been running since Phase 8 with zero embeddings stored.
+
+SQL cannot answer *"how much do I spend on food delivery?"* — merchants arrive as `PEDIDOSYA GT`,
+`UBER EATS`, `MCDONALDS 123`, and no `LIKE` pattern generalises. Embedding the descriptions and
+searching by similarity does.
+
+- Embedding column on `transactions`, populated during ingestion
+- A retriever tool alongside the SQL toolkit
+- The LLM picks: **structured questions → SQL, fuzzy questions → vectors**
+
+---
+
+## Phase 16: Long-term Memory — Pending
+
+Checkpointers remember a *thread*. LangGraph's `BaseStore` remembers across threads — roughly the
+difference between a query tool and an assistant.
+
+Examples worth storing: "categorise PEDIDOSYA as groceries", a preferred display currency,
+subscriptions the user has already identified as recurring.
+
+---
+
+## Phase 17: Prompt Management — Pending
+
+`agents/extraction.py` holds a hardcoded prompt tuned to one bank's layout — and a second bank
+(Promerica) already needed different handling. Moving prompts into LangSmith gives versioning and
+makes the prompt a *variable* in Phase 12's experiments, rather than an edit you make and hope about.
+
+---
+
+## Phase 18: Next.js App — Pending
+
+`npx create-agent-chat-app`, chat via `useStream` against `langgraph dev` on :2024, plus `/upload`
+and `/dashboard` routes hitting FastAPI. Stretch: generative UI via `push_ui_message`.
+
+## Phase 19: Metabase — Optional
+
+Connect it to the app's Postgres via the `query_reader` role (host `postgres:5432` from inside the
+compose network).

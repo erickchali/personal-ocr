@@ -2,7 +2,6 @@ import logging
 import uuid
 from pathlib import Path
 
-from dotenv import load_dotenv
 from langchain.agents import create_agent
 from langchain.tools import ToolRuntime
 from langchain_community.document_loaders import PyPDFLoader
@@ -10,13 +9,11 @@ from langchain_core.messages import HumanMessage, ToolMessage
 from langchain_core.tools import tool
 from langgraph.types import Command
 
-from agents.llm import get_llm
-
 # Import our Pydantic models
-from agents.models import CreditCardStatement, OCRCustomState
+from agents.graph_state import OCRCustomState
+from agents.llm import get_llm
 from db.cruds import save_statement, statement_exists
-
-load_dotenv()
+from domain.models import CreditCardStatement
 
 PDF_DIRECTORY = Path(__file__).parent.parent / "pdf-to-process"
 

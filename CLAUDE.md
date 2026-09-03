@@ -64,10 +64,17 @@ personal-ocr/
 │   ├── graph.py            # StateGraph definition — exposes builder + compiled graph
 │   ├── graph_state.py      # FinancialAssistantState TypedDict
 │   ├── llm.py              # Per-role LLM factory over OpenRouter (see LLM_MODEL_* env vars)
-│   ├── models.py           # Pydantic models: CreditCardStatement, Transaction, etc.
-│   ├── nodes.py            # Node functions: router, list_files, process_files, query, respond
-│   ├── tools.py            # @tool-decorated query functions for the agentic loop
+│   ├── nodes.py            # Node functions: router, query, respond
 │   └── pdf_reader_agent.py # LEGACY: original create_agent implementation (keep as reference)
+├── api/
+│   ├── main.py             # FastAPI app (uploads, statements, metrics — no chat route)
+│   ├── ingestion.py        # hash -> MinIO -> extract -> save pipeline
+│   ├── storage.py          # boto3 wrapper over MinIO
+│   └── routers/            # uploads, statements, metrics
+├── config/
+│   └── settings.py         # pydantic-settings; the only place env vars are read
+├── domain/
+│   └── models.py           # Shared vocabulary: CreditCardStatement, Transaction, etc.
 ├── db/
 │   ├── cruds.py            # Database operations: save, query, check duplicates
 │   ├── database.py         # SQLAlchemy engine + session factory (reads DATABASE_URL)
@@ -221,8 +228,20 @@ See `ROADMAP.md` for the detailed phase-by-phase plan.
 | 4 | Checkpointing + multi-turn conversation | Done    |
 | 5 | Human-in-the-loop approval | Done    |
 | 6 | Streaming + LangSmith monitoring | Done    |
-| 7 | LangGraph Studio + deployment | Pending |
+| 7 | LangGraph Studio + LangSmith tracing | Done    |
 | 8 | Postgres + SQLAlchemy + Alembic + SQL Agent | Done    |
+| 8.5 | OpenRouter gateway + per-role model selection | Done    |
+| 9 | Split ingestion out of the graph | Done    |
+| 10 | Ingestion pipeline: MinIO + hash-based idempotency | Done    |
+| 11 | FastAPI: uploads, statements, metrics | Done    |
+| 12 | Evaluation: datasets + reconciliation evaluators | Pending |
+| 13 | Model fallbacks for provider faults | Pending |
+| 14 | Persistent checkpointer (PostgresSaver) | Pending |
+| 15 | Semantic search over transactions (pgvector) | Pending |
+| 16 | Long-term memory across threads (Store) | Pending |
+| 17 | Prompt management in LangSmith | Pending |
+| 18 | Next.js app on Agent Chat UI (`useStream`) | Pending |
+| 19 | (Optional) Metabase connected to Postgres | Pending |
 
 ---
 

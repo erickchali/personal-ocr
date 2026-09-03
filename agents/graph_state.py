@@ -1,14 +1,16 @@
-from typing import Annotated
+from typing import Annotated, Literal
 
+from langchain.agents import AgentState
 from langgraph.graph.message import add_messages
 from typing_extensions import TypedDict
-
-from agents.models import CreditCardStatement
 
 
 class FinancialAssistantState(TypedDict):
     messages: Annotated[list, add_messages]
-    intent: str | None
-    pending_files: list[str] | None
-    processed_count: int | None
-    pending_statements: list[CreditCardStatement] | None
+    intent: Literal["query", "chat"] | None
+
+
+class OCRCustomState(AgentState):
+    """State for the legacy create_agent implementation in pdf_reader_agent.py."""
+
+    files_to_process: list[str] | None = []
