@@ -234,8 +234,14 @@ See `ROADMAP.md` for the detailed phase-by-phase plan.
 | 9 | Split ingestion out of the graph | Done    |
 | 10 | Ingestion pipeline: MinIO + hash-based idempotency | Done    |
 | 11 | FastAPI: uploads, statements, metrics | Done    |
-| 12 | Next.js app on Agent Chat UI (`useStream`) | Pending |
-| 13 | (Optional) Metabase connected to Postgres | Pending |
+| 12 | Evaluation: datasets + reconciliation evaluators | Pending |
+| 13 | Model fallbacks for provider faults | Pending |
+| 14 | Persistent checkpointer (PostgresSaver) | Pending |
+| 15 | Semantic search over transactions (pgvector) | Pending |
+| 16 | Long-term memory across threads (Store) | Pending |
+| 17 | Prompt management in LangSmith | Pending |
+| 18 | Next.js app on Agent Chat UI (`useStream`) | Pending |
+| 19 | (Optional) Metabase connected to Postgres | Pending |
 
 ---
 
