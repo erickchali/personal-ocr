@@ -66,6 +66,13 @@ personal-ocr/
 │   ├── llm.py              # Per-role LLM factory over OpenRouter (see LLM_MODEL_* env vars)
 │   ├── nodes.py            # Node functions: router, query, respond
 │   └── pdf_reader_agent.py # LEGACY: original create_agent implementation (keep as reference)
+├── api/
+│   ├── main.py             # FastAPI app (uploads, statements, metrics — no chat route)
+│   ├── ingestion.py        # hash -> MinIO -> extract -> save pipeline
+│   ├── storage.py          # boto3 wrapper over MinIO
+│   └── routers/            # uploads, statements, metrics
+├── config/
+│   └── settings.py         # pydantic-settings; the only place env vars are read
 ├── domain/
 │   └── models.py           # Shared vocabulary: CreditCardStatement, Transaction, etc.
 ├── db/
@@ -225,8 +232,8 @@ See `ROADMAP.md` for the detailed phase-by-phase plan.
 | 8 | Postgres + SQLAlchemy + Alembic + SQL Agent | Done    |
 | 8.5 | OpenRouter gateway + per-role model selection | Done    |
 | 9 | Split ingestion out of the graph | Done    |
-| 10 | Ingestion pipeline: MinIO + hash-based idempotency | Pending |
-| 11 | FastAPI: uploads, statements, metrics | Pending |
+| 10 | Ingestion pipeline: MinIO + hash-based idempotency | Done    |
+| 11 | FastAPI: uploads, statements, metrics | Done    |
 | 12 | Next.js app on Agent Chat UI (`useStream`) | Pending |
 | 13 | (Optional) Metabase connected to Postgres | Pending |
 

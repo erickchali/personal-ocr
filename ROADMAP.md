@@ -29,8 +29,8 @@ Transform the PDF processor into a multi-node LangGraph financial assistant chat
 | **8** | Postgres + SQLAlchemy + Alembic + SQL Agent | Done |
 | **8.5** | OpenRouter gateway + per-role model selection | Done |
 | **9** | Split ingestion out of the graph | Done |
-| **10** | Ingestion pipeline: MinIO + hash-based idempotency | Pending |
-| **11** | FastAPI: uploads, statements, metrics | Pending |
+| **10** | Ingestion pipeline: MinIO + hash-based idempotency | Done |
+| **11** | FastAPI: uploads, statements, metrics | Done |
 | **12** | Next.js app on Agent Chat UI (`useStream`) | Pending |
 | **13** | (Optional) Metabase connected to Postgres | Pending |
 
@@ -200,6 +200,27 @@ Replaced `graph.invoke()` with `graph.stream()` for real-time output and added c
 
 ---
 
+## Phase 7: LangGraph Studio + LangSmith — Done
+
+- `langgraph.json` registers both graphs — `financial_assistant` (the StateGraph) and
+  `pdf_reader_agent` (the legacy `create_agent` reference) — and declares `"env": ".env"`.
+- `agents/graph.py` exports an uncompiled `builder` **and** a `graph` compiled without a
+  checkpointer, so Studio can attach its own persistence while `main.py` compiles with
+  `InMemorySaver`. Avoids the "custom checkpointer conflicts with platform" error.
+- `uv run langgraph dev` serves both graphs with thread state in `.langgraph_api/`.
+- `.vscode/launch.json` runs the dev server under the debugger. Reload is on, so the code runs
+  in a child process — `"subProcess": true` is what binds breakpoints there.
+- LangSmith tracing is live via `LANGSMITH_*` in `.env`; traces land in the `learning-path` project.
+
+### Gotcha
+
+Cost attribution in LangSmith is derived by matching `ls_provider` + `ls_model_name` against its
+pricing table. Since Phase 8.5 that pair is `openrouter` + a slug like `anthropic/claude-sonnet-4.5`,
+which may not resolve — traces and token counts stay correct, but cost can read $0 until model
+prices are added under LangSmith's Model pricing settings.
+
+---
+
 ## Phase 8: Postgres + SQLAlchemy + Alembic + SQL Agent — Done
 
 Replaced SQLite with PostgreSQL, added ORM models, migrations, Pydantic response schemas, tests, and an LLM-powered SQL agent.
@@ -283,19 +304,65 @@ an LLM call to detect something a function call can just state.
 
 ---
 
-## Phase 10: Ingestion Pipeline — Pending
+## Phase 10: Ingestion Pipeline — Done
 
-- `file_sha256` unique column so a re-uploaded PDF costs **zero** LLM calls (today dedupe happens
-  *after* extraction, so duplicates burn a full `gemini-2.5-pro` call before being discarded)
-- `object_key` + `status` columns; `boto3` wrapper over MinIO
-- `try/except IntegrityError` around `save_statement` — the `uq_statement` constraint exists but has
-  no handler, so a race currently raises and kills the run
-- HITL moves from `interrupt()` to `status='pending'` + an approve endpoint
+MinIO finally wired up, and idempotency moved *above* the expensive step.
 
-## Phase 11: FastAPI — Pending
+- `db/models.py` — `object_key`, `file_sha256` (unique), `status` columns
+- `api/storage.py` — boto3 over MinIO; content-addressed keys (`statements/<sha256>.pdf`)
+- `api/ingestion.py` — `ingest_pdf()`: hash -> store -> parse -> extract -> save
+- `db/cruds.py` — `statement_by_hash`, `attach_source`, `approve_statement`, and a
+  `try/except IntegrityError` that raises `DuplicateStatementError` instead of dying
 
-`POST /uploads`, `GET /statements`, `POST /statements/{id}/approve`, `GET /metrics`. No chat route —
-that goes straight to `langgraph dev`.
+### Three rungs, cheapest first
+
+| Check | Catches | Cost |
+|---|---|---|
+| `file_sha256` | identical file re-uploaded | free |
+| `uq_statement` | same statement, different file | one extraction |
+| `IntegrityError` handler | two uploads racing | one extraction |
+
+Measured: second upload of the same PDF went from 21.3s to 0.00s.
+
+### Gotcha found while building
+
+When rung two fires, the *existing* row has no hash recorded — so that file would pay for
+extraction on every future upload. `attach_source()` teaches the row its hash on the way
+out, and never overwrites one already set.
+
+### Concepts practiced
+
+- **Idempotency is about placement** — a check is only cheap if it runs before the
+  expensive call. The hash check is what makes a fire-and-forget background task safe.
+- **Check-then-act is not atomic** — `statement_exists()` and `save_statement()` use
+  separate sessions; only the DB constraint actually guarantees uniqueness.
+- **Async HITL** — `interrupt()` needs a human present. A background task has none, so the
+  pause becomes durable state: `status='pending'` plus an approve endpoint.
+
+---
+
+## Phase 11: FastAPI — Done
+
+- `api/main.py` — app, CORS for `localhost:3000`, `ensure_bucket()` on lifespan startup
+- `api/routers/` — `uploads`, `statements`, `metrics`
+- `POST /uploads` returns **202** and queues extraction via `BackgroundTasks`
+
+No chat route: the client streams from `langgraph dev` through `useStream`, which already
+handles streaming, threads and interrupts.
+
+### Key design decision
+
+The duplicate check runs **inside** the request while extraction runs after it. One indexed
+lookup is cheap enough to do inline, so a repeat upload gets a real answer (11ms, with the
+statement id) instead of a hopeful "accepted".
+
+### Concepts practiced
+
+- **202 Accepted** — the right code for "queued, not finished"
+- **`BackgroundTasks`** — runs in-process after the response; no broker, but dies with the
+  process. Acceptable only because ingestion is idempotent.
+- **Portable SQL** — `/metrics` groups months with `extract()` rather than `to_char()`, so
+  the same query runs on Postgres and the SQLite test DB.
 
 ## Phase 12: Next.js App — Pending
 
@@ -306,24 +373,3 @@ and `/dashboard` routes hitting FastAPI. Stretch: generative UI via `push_ui_mes
 
 Connect it to the app's Postgres via the `query_reader` role (host `postgres:5432` from inside the
 compose network).
-
----
-
-## Phase 7: LangGraph Studio + LangSmith — Done
-
-- `langgraph.json` registers both graphs — `financial_assistant` (the StateGraph) and
-  `pdf_reader_agent` (the legacy `create_agent` reference) — and declares `"env": ".env"`.
-- `agents/graph.py` exports an uncompiled `builder` **and** a `graph` compiled without a
-  checkpointer, so Studio can attach its own persistence while `main.py` compiles with
-  `InMemorySaver`. Avoids the "custom checkpointer conflicts with platform" error.
-- `uv run langgraph dev` serves both graphs with thread state in `.langgraph_api/`.
-- `.vscode/launch.json` runs the dev server under the debugger (`--no-reload`, since hot reload
-  respawns into a child process the debugger never attaches to).
-- LangSmith tracing is live via `LANGSMITH_*` in `.env`; traces land in the `learning-path` project.
-
-### Gotcha
-
-Cost attribution in LangSmith is derived by matching `ls_provider` + `ls_model_name` against its
-pricing table. Since Phase 8.5 that pair is `openrouter` + a slug like `anthropic/claude-sonnet-4.5`,
-which may not resolve — traces and token counts stay correct, but cost can read $0 until model
-prices are added under LangSmith's Model pricing settings.
