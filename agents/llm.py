@@ -11,7 +11,9 @@ LLMRole = Literal["default", "extraction", "router", "query", "respond"]
 # Fallbacks when no LLM_MODEL_* env var is set. Slugs: https://openrouter.ai/models
 DEFAULT_MODELS: dict[str, str] = {
     "default": "google/gemini-2.5-flash",
-    "extraction": "google/gemini-2.5-pro",
+    # flash over pro: measured on a 70-transaction statement, identical output at ~5x the
+    # speed and ~7x cheaper, and pro intermittently returned empty content via OpenRouter.
+    "extraction": "google/gemini-2.5-flash",
     "router": "google/gemini-2.5-flash-lite",
     "query": "anthropic/claude-sonnet-4.5",
     "respond": "google/gemini-2.5-flash",
@@ -46,4 +48,8 @@ def get_llm(role: LLMRole = "default") -> BaseChatModel:
         resolve_model(role),
         model_provider="openrouter",
         temperature=0,
+        # Route only to upstream providers that honour the parameters we send. Without it
+        # OpenRouter may pick one that ignores response_format or tool schemas and returns
+        # empty content on an otherwise *successful* call — which no retry would catch.
+        openrouter_provider={"require_parameters": True},
     )

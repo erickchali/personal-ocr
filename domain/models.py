@@ -12,7 +12,7 @@ WHY PYDANTIC?
 """
 
 from datetime import date, datetime
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from enum import StrEnum
 from typing import Annotated
 
@@ -34,6 +34,23 @@ def parse_guatemalan_date(value: str | date) -> date:
 
 
 GuatemalanDate = Annotated[date, BeforeValidator(parse_guatemalan_date)]
+
+
+def drop_sign(value: object) -> object:
+    """Strip the sign from an amount, leaving direction to transaction_type.
+
+    Banks disagree here: Promerica writes payments as negative ("PAGO, GRACIAS" -15000.00)
+    while others write every row positive. Returns the value untouched when it isn't a
+    number so Pydantic still reports its own error.
+    """
+    try:
+        return abs(Decimal(str(value)))
+    except (InvalidOperation, TypeError, ValueError):
+        return value
+
+
+# Runs before the gt=0 check, so a negative amount is normalised rather than rejected.
+PositiveAmount = Annotated[Decimal, BeforeValidator(drop_sign)]
 
 
 class Currency(StrEnum):
@@ -65,8 +82,8 @@ class Transaction(BaseModel):
     )
     consumption_date: GuatemalanDate = Field(description="Date when the purchase was made (Fecha de consumo)")
     description: str = Field(description="Merchant name or transaction description")
-    amount: Decimal = Field(
-        description="Transaction amount (always positive)",
+    amount: PositiveAmount = Field(
+        description="Transaction amount (always positive; direction comes from transaction_type)",
         gt=0,  # Validation: must be greater than 0
     )
     currency: Currency = Field(description="Currency: GTQ for Quetzales, USD for Dollars")
