@@ -31,7 +31,7 @@ Transform the PDF processor into a multi-node LangGraph financial assistant chat
 | **9** | Split ingestion out of the graph | Done |
 | **10** | Ingestion pipeline: MinIO + hash-based idempotency | Done |
 | **11** | FastAPI: uploads, statements, metrics | Done |
-| **12** | Evaluation: datasets + reconciliation evaluators | Pending |
+| **12** | Evaluation: datasets + reconciliation evaluators | Done |
 | **13** | Model fallbacks for provider faults | Pending |
 | **14** | Persistent checkpointer (PostgresSaver) | Pending |
 | **15** | Semantic search over transactions (pgvector) | Pending |
@@ -370,24 +370,66 @@ statement id) instead of a hopeful "accepted".
 - **Portable SQL** — `/metrics` groups months with `extract()` rather than `to_char()`, so
   the same query runs on Postgres and the SQLite test DB.
 
-## Phase 12: Evaluation — Pending
+## Phase 12: Evaluation — Done
 
-Tracing tells you *what happened*; evaluation tells you whether it was **right**. Extraction is
-graded by eye today — flash was chosen over pro on three manual runs and a human reading the output.
+Tracing tells you *what happened*; evaluation tells you whether it was **right**. Extraction used
+to be graded by eye — flash was chosen over pro on three manual runs and a human reading output.
 
-- **Dataset** — the real statements in `pdf-to-process/`, which already cover two bank formats
-- **Reconciliation evaluators** — no labelling required, because the document asserts its own
-  arithmetic:
-  - `previous_balance + purchases - payments ≈ current_balance`
-  - `sum(transactions where type='purchase') ≈ purchases_gtq`
-  - `sum(transactions where type='payment') ≈ payments_gtq`
-- **Experiments** — change a model or prompt, re-run, compare scores side by side
-- **CI quality gate** — fail the build when extraction accuracy regresses
+### What was built
 
-Use **deterministic code evaluators, not LLM-as-judge**: for extraction the correct answer is
-knowable, so scoring it with another model only adds noise and cost. Dropping a transaction or
-misreading an amount breaks the totals — which is how the negative-amount bug would have been
-caught automatically.
+- `evals/fixtures/` — four anonymised statements covering **four** bank layouts
+- `evals/anonymize.py` — turns a real PDF into a fixture, reusing `extract_pdf_text` so the fixture
+  matches what production sends. Refuses to write if an identifier survives *or* if >10% of the text
+  disappears
+- `evals/dataset.py` — creates the LangSmith dataset, clearing existing examples so re-runs do not
+  duplicate. Keeps the dataset id, so experiment history survives
+- `evals/extraction.py` — `target` wrapping `extract_structured_data`, a reconciliation evaluator,
+  and the `client.evaluate(...)` run
+
+### Key design decisions
+
+- **No reference outputs needed.** Evaluator arguments are injected by name, so an evaluator that
+  declares only `outputs` never needs a golden answer. The dataset is inputs-only — which removes
+  the "I must hand-label first" blocker entirely.
+- **Reconciliation, not LLM-as-judge.** The document asserts its own arithmetic:
+  `sum(transactions where type in (purchase, fee)) == purchases_gtq`. Deterministic, free, instant.
+  Installments are excluded — banks report `Cuotas` as a separate line, not as purchases.
+- **Target wraps the narrow function**, not `ingest_pdf` — otherwise every eval run writes to MinIO
+  and Postgres, and you are grading your database.
+
+### Bugs the suite caught
+
+- **`agents/extraction.py` prompt corrupted 2 of 4 statements.** A hardcoded `SUB TOTAL XXXXXX NNNN`
+  block, written for one issuer, was stated as a fact about every statement. On BAC and MC Black it
+  made the model misread the summary — `purchases_gtq` came back as an installment total, or as the
+  wrong entry in a detached number column. Scoping it ("applies only to transaction rows") and
+  gating it ("ONLY IF the statement contains such rows") took the suite from **2/4 to 3/4** while
+  keeping card grouping on the statement that needs it.
+- **The evaluator itself was wrong twice.** `sum(float(x for x in ...))` put the generator inside
+  `float()`; then `abs(a - b < 0.01)` put the comparison inside `abs()`, returning `int` rather than
+  `bool`. That second one is the instructive failure: it changed how LangSmith renders results, so a
+  statement off by Q4,020 displayed as a pass.
+
+### Concepts practiced
+
+- **Reference-free evaluation** — grading output on internal consistency when the correct answer is
+  derivable from the input
+- **An eval suite only protects what it measures.** Reconciliation passes on a statement whose card
+  references are entirely missing, which is exactly how a recommended "cleanup" nearly shipped a
+  silent regression. Coverage gaps are invisible by construction.
+- **Fix the code, never the thermometer** — a red square representing a real defect is the suite
+  working
+
+### Open
+
+- **`02-bac-visa` is a genuine red.** BAC prints summary values as a bare column with labels 20 lines
+  later; the model picks the wrong entry. Six prompt variants were tried — only removing the
+  card-reference instructions *entirely* fixes it, and that costs card grouping elsewhere. The
+  leading hypothesis is **two-pass extraction** (summary and transactions as separate calls, so
+  transaction rules cannot leak into summary reading); the fallback is per-issuer prompts (Phase 17).
+- **No `card_references_populated` evaluator yet** — the coverage gap described above.
+- `evals/dataset.py` still hardcodes four filenames; a `glob` over `fixtures/` would make adding a
+  statement a zero-edit change.
 
 Docs: [quickstart](https://docs.langchain.com/langsmith/evaluation-quickstart),
 [custom code evaluators](https://docs.langchain.com/langsmith/bind-evaluator-to-dataset#custom-code-evaluators),

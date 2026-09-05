@@ -47,16 +47,17 @@ For transaction_type, use:
 - "installment" for Cuotas
 - "credit" for cashback/rewards (ByMastercard PedidosY)
 
-IMPORTANT - For credit_card_reference field:
-Transactions are grouped by card, and each group ends with a "SUB TOTAL XXXXXX XXXX" row.
-- Look for "SUB TOTAL XXXXXX XXXX" rows (e.g., "SUB TOTAL XXXXXX 3251", "SUB TOTAL XXXXXX 3269")
-- ALL transactions BEFORE a subtotal row should have that card reference (e.g., "XXXXXX 3251")
-- This pattern repeats for each section: GTQ transactions, USD transactions, installments (Cuotas)
-- For "OTROS CARGOS" (other charges), credit_card_reference can be null
+For the credit_card_reference field:
+This rule applies ONLY to transaction rows. Never use it when reading summary or header
+values such as balances, totals or "Compras y retiros".
 
-Example: If you see transactions followed by "SUB TOTAL XXXXXX 3251", then another set
-of transactions followed by "SUB TOTAL XXXXXX 3269", the first group gets "XXXXXX 3251"
-and the second group gets "XXXXXX 3269".
+ONLY IF the statement contains rows of the form "SUB TOTAL XXXXXX NNNN":
+- every transaction listed ABOVE such a row belongs to card "XXXXXX NNNN"
+- the pattern repeats per section (Quetzales, Dolares, Cuotas)
+- for "OTROS CARGOS" (other charges), credit_card_reference can be null
+
+If the statement has no "SUB TOTAL" rows, ignore this rule entirely and set
+credit_card_reference from an explicit card heading if one is present, otherwise null.
 
 Statement content:
 {content}

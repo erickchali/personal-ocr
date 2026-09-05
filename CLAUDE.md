@@ -75,6 +75,11 @@ personal-ocr/
 │   └── settings.py         # pydantic-settings; the only place env vars are read
 ├── domain/
 │   └── models.py           # Shared vocabulary: CreditCardStatement, Transaction, etc.
+├── evals/
+│   ├── anonymize.py        # real PDF -> anonymised fixture (refuses to leak or truncate)
+│   ├── dataset.py          # builds the LangSmith dataset from fixtures/
+│   ├── extraction.py       # target + reconciliation evaluator + experiment run
+│   └── fixtures/           # anonymised statements, one per bank layout
 ├── db/
 │   ├── cruds.py            # Database operations: save, query, check duplicates
 │   ├── database.py         # SQLAlchemy engine + session factory (reads DATABASE_URL)
@@ -186,6 +191,12 @@ uv run alembic upgrade head
 
 # Generate a new migration after changing db/models.py
 uv run alembic revision --autogenerate -m "describe the change"
+
+# Evals — note `-m`: evals/ is not an installed package, so running the file
+# directly puts evals/ on sys.path instead of the repo root and imports fail.
+uv run python -m evals.dataset        # (re)build the LangSmith dataset
+uv run python -m evals.extraction     # run an experiment (~$0.06, ~90s)
+uv run python -m evals.anonymize "pdf-to-process/<file>.pdf" 05-some-bank
 ```
 
 ---
@@ -234,7 +245,7 @@ See `ROADMAP.md` for the detailed phase-by-phase plan.
 | 9 | Split ingestion out of the graph | Done    |
 | 10 | Ingestion pipeline: MinIO + hash-based idempotency | Done    |
 | 11 | FastAPI: uploads, statements, metrics | Done    |
-| 12 | Evaluation: datasets + reconciliation evaluators | Pending |
+| 12 | Evaluation: datasets + reconciliation evaluators | Done    |
 | 13 | Model fallbacks for provider faults | Pending |
 | 14 | Persistent checkpointer (PostgresSaver) | Pending |
 | 15 | Semantic search over transactions (pgvector) | Pending |

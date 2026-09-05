@@ -22,6 +22,7 @@ uv run alembic upgrade head
 | API | `uv run uvicorn api.main:app --reload` | uploads, statements, metrics — `/docs` for Swagger |
 | Chat (CLI) | `uv run python main.py` | asks questions against stored data |
 | Chat (Studio) | `uv run langgraph dev` | same graph, with tracing UI |
+| Evals | `uv run python -m evals.extraction` | scores extraction against anonymised fixtures |
 
 In VS Code, press F5 — [.vscode/launch.json](.vscode/launch.json) has all three, plus a
 compound that starts the API and LangGraph server together.
@@ -99,6 +100,23 @@ every row positive. `Transaction.amount` is `gt=0` with direction carried by
 Note this belongs on the **Pydantic** model, not the SQLAlchemy one — by the time data
 reaches `db/models.py` it has already been validated, and `@field_validator` is inert on
 an ORM class anyway (SQLAlchemy uses `@validates`).
+
+### Prompt instructions leak across bank layouts
+
+A hardcoded `SUB TOTAL XXXXXX NNNN` rule written for one issuer silently corrupted the
+*summary* on two others — the model applied a "find numbers near card identifiers" lens to
+a bare column of figures. Scoping it (`applies only to transaction rows`) and gating it
+(`ONLY IF the statement contains such rows`) took the eval suite from 2/4 to 3/4.
+
+`02-bac-visa` is still red: BAC prints summary values with their labels 20 lines later, and
+every prompt variant that fixes it also removes card grouping elsewhere. Tracked in
+ROADMAP Phase 12.
+
+### Evaluators are code you wrote, so they can be wrong
+
+`abs(a - b < 0.01)` puts the comparison inside `abs()`, returning `int` rather than `bool`.
+LangSmith renders a bool as pass/fail but an int as a score — so a statement off by Q4,020
+showed up green. If a board suddenly goes all-green, check the evaluator before celebrating.
 
 ### Debugging the servers
 

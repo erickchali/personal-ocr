@@ -23,6 +23,7 @@ if __name__ == "__main__":
         credit_card_statements_target,
         data=DATASET_NAME,
         evaluators=[credit_card_statements_evaluator],
-        experiment_prefix="extraction-flash-fixed-evaluator",
+        experiment_prefix="extraction-flash-prompt-update-repetitions",
         max_concurrency=2,
+        num_repetitions=3
     )
