@@ -20,9 +20,7 @@ def create_credit_card_statemants_dataset():
     if dataset:
         existing_examples = list(client.list_examples(dataset_id=dataset.id))
         if existing_examples:
-            print(
-                f"Force recreate: Deleting {len(existing_examples)} existing examples..."
-            )
+            print(f"Force recreate: Deleting {len(existing_examples)} existing examples...")
             for ex in existing_examples:
                 client.delete_example(ex.id)
             print("Existing examples deleted.")
@@ -33,6 +31,8 @@ def create_credit_card_statemants_dataset():
         statement_2_text = statement_2.read()
     with open(f"{os.getcwd()}/evals/fixtures/03-promerica.txt", encoding="utf-8") as statement_3:
         statement_3_text = statement_3.read()
+    with open(f"{os.getcwd()}/evals/fixtures/04-mc-black-subtotal.txt", encoding="utf-8") as statement_4:
+        statement_4_text = statement_4.read()
 
     examples = [
         {
@@ -52,21 +52,14 @@ def create_credit_card_statemants_dataset():
                 "pdf_text": str(statement_3_text),
                 "source": "03-promerica.txt",
             }
-        }
+        },
+        {
+            "inputs": {
+                "pdf_text": str(statement_4_text),
+                "source": "04-mc-black-subtotal.txt",
+            }
+        },
     ]
-    # created = 0
-    # for example in examples:
-    #     try:
-    #         client.create_example(
-    #             dataset_id=dataset.id,
-    #             inputs=example["inputs"]
-    #         )
-    #         created += 1
-    #     except Exception as e:
-    #         print(
-    #             f"Warning: Could not create example {example['inputs']['source']}: {e}"
-    #         )
-    # print(f"created {created} examples on dataset")
     client.create_examples(dataset_id=dataset.id, examples=examples)
     print(f"created {len(examples)} examples on dataset")
 
