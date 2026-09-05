@@ -1,0 +1,103 @@
+--- Page 1 ---
+Q $
+Resumen de movimientos
+Q
+[BARCODE]
+Q $
+XXXX XXXX XXXX 1115 MC BLACK INTERNACIONAL
+Fecha de corte:
+Fecha de pago:
+10 08 2026
+20260904
+Saldo anterior: 4,020.83 23.54-
+(+) Compras y retiros: .00 .00
+(+) Cuotas Extraf/Cuotas: 4,020.83 .00
+(+) Intereses: .00 .00
+(+) Cargos moratorios: .00 .00
+(+) Otros cargos: .00 .00
+(-) Pagos: 4,020.83 .00
+(-) Otros créditos: .00 .00
+Saldo al corte (Pago de contado): 4,020.83 23.54-
+Límite Total Extraf/Cuotas*:
+Saldo capital Total de la tarjeta:
+Disponible Total:
+600,000.00
+60,312.53
+493,409.20
+111 avenida 111 calle, Mixco, Guatemala, 01057
+46858005
+//005627 10/08
+JUAN PEREZ
+Extrafinanciamientos/Cuotas*
+Pago mínimo de
+la línea de crédito
+Vigente:
+Amortización
+de capital:
+Intereses por
+®nanciamiento:
+Comisiones
+ y otros cargos:
+Montos vencidos de
+los pagos mínimos de
+los meses anteriores:
+Intereses por mora:
+Cuota:
+Pago mínimo:
+Extra®nanciamiento
+Vencido:
+Totales:
+Totales:
+Pago mínimo total:
+Q $
+Cuando únicamente se efectúe el pago mínimo, aunque ya no realice consumo
+adicional alguno, tome en cuenta que el plazo para la cancelación de su deuda se
+extenderá, debido a que, con dicho pago, se  cubren primero los intereses,
+comisiones y otros cargos y, por último, una parte mínima se amortiza a capital.
+200.00 .00
+.00 .00
+.00 .00
+200.00 .00
+.00 .00
+.00 .00
+.00 .00
+200.00 .00
+.00 .00
+200.00 .00
+Límite de crédito: 200,000.00 25,000.00
+Crédito disponible: 195,979.17 24,520.94
+Cuotas vencidas: 0 0
+Saldo en mora: .00 .00
+Tasa de interés anual: 24.00% 24.00%
+*Aplican restricciones
+
+--- Page 2 ---
+Fecha de
+operación
+Fecha de
+consumo CréditosDébitosDescripción
+MOVIMIENTOS EN QUETZALES
+03/08/26 03/08/26 GRACIAS POR SU PAGO 4,020.83
+TOTAL QUETZALES .00 4,020.83
+CUOTAS
+MOVIMIENTOS EN QUETZALES
+10/08/26 10/08/26 PLAN MASTER CUOTAS 04 (04/19) 4,020.83
+TOTAL QUETZALES 4,020.83 .00
+PAGOS REALIZADOS
+MOVIMIENTOS EN QUETZALES
+PAGO A CAPITAL Y OTROS CARGOS 4,020.83
+PAGO A INTERESES POR FINANCIAMIENTO
+TOTAL QUETZALES .00 4,020.83
+MOVIMIENTOS EN DOLARES
+PAGO A CAPITAL Y OTROS CARGOS
+PAGO A INTERESES POR FINANCIAMIENTO
+TOTAL DOLARES .00 .00
+BALANCE DE INTERESES
+MOVIMIENTOS EN QUETZALES
+SALDO DE INTERESES
+TOTAL QUETZALES .00 .00
+MOVIMIENTOS EN DOLARES
+SALDO DE INTERESES
+TOTAL DOLARES .00 .00
+Nota: Favor de revisar las operaciones. Si dentro de los 30 días siguientes a su fecha de corte no hemos recibido sus
+observaciones por escrito, consideraremos que han merecido su aprobación.

@@ -1,0 +1,190 @@
+--- Page 1 ---
+Fecha de corte
+Tasa de interés del
+período:
+Resumen de la cuenta
+Tasa de interés anual: Pago realizado
+a capital
+Pago realizado
+a intereses
+Fecha de pago Pago de contado
+Número de tarjeta
+Límite de crédito
+Programa de lealtad
+Tipo de tarjeta
+Pago mínimoSaldo a la fecha
+de corte
+4XXX-XXXX-XXXX-4732 VISA CASHBAC GASOLIN
+Pago de contado
+Detalle
+Infórmate sobre Educación Financiera en www.baccredomatic.gt
+@baccredomatic 5511-0222
+=
+JUAN/PEREZ
+111 avenida 111 calle, Mixco, Guatemala, 01057
+[BARCODE]
+ US$ 5,700
+CASHBACK GASOLINA
+SALDO DISPONIBLE 622
+03-AGO-2026 26-AGO-2026
+Q. 11,936.43 Q. 674.00 Q. 12,339.69
+US$. 16.14 US$. 16.00 US$. 16.26
+Fechas importantes: Montos importantes:
+Cargos e intereses: Pagos realizados:
+Q (%) 5.40 Q (%) 64.80
+US$ (%) 4.00 US$ (%) 48.00
+Q. 21,230.61 Q. .00
+US$. .00 US$. .00
+22,252.78
+11,936.43
+21,230.61
+.00
+403.26
+.00
+.00
+1,022.17
+.00
+16.14
+.00
+.00
+.12
+.00
+.00
+.00
+Q. 11,936.43 US$. 16.14
+ Página 1 de 4
+Quetzales Dólares USD
+Q. 12,339.69 US$. 16.26
+Saldo anterior          +
+Compras y otros cargos          +
+Pagos y abonos          -
+Interés sobre saldo          +
+Intereses bonificables          +
+Intereses por mora          +
+Intereses no bonificables          +
+Intereses bonificados          -
+Saldo a la fecha de corte             =
+
+
+--- Page 2 ---
+@baccredomatic 5511-0222
+Infórmate sobre Educación Financiera en www.baccredomatic.gt
+Detalle de movimientos del mes ****-****-****-4732 JUAN/PEREZ
+Tipo de
+transacción
+Fecha de
+consumo
+Fecha de
+operación Descripción Quetzales Dólares
+Débitos Créditos Débitos Créditos
+31 JUL/04 JUL/04 PAGO RECIBIDO...406 21,230.61-
+11 JUL/18 JUL/19 SHELL LAS AMERICAS DL GUATEMALA
+GT 502.97
+11 JUL/22 JUL/23 UBER *EATS HELP.UBER.COMNL 67.45
+11 JUL/25 JUL/27 UBER*EATS GUATEMALA GT 160.44
+11 JUL/26 JUL/27 EST. DE SERV. ROOSEVELT GUATEMAL
+A GT 625.47
+11 JUL/28 JUL/29 ASYSA VEL GUATEMALA GT 650.00
+11 JUL/29 JUL/31 MCDONALDS (APP) GUATEMALA GT 63.00
+11 JUL/30 AGO/01 PEDIDOSYA PROPINA GUATEMALA GT 9.00
+11 JUL/30 AGO/01 PEDIDOSYA FOOD GUATEMALA GT 97.00
+11 JUL/30 AGO/01 UBER*EATS GUATEMALA GT 202.55
+11 JUL/30 JUL/30 OPENROUTER, INC OPENROUTER.AIUS 16.14
+DÉBITO 2,377.88 16.14
+CRÉDITO 21,230.61- .00
+Detalle de movimientos del mes ****-****-****-4880 LUISA/PEREZ
+Tipo de
+transacción
+Fecha de
+consumo
+Fecha de
+operación Descripción Quetzales Dólares
+Débitos Créditos Débitos Créditos
+11 JUL/10 JUL/12 INVERSIONES UNDECIM GUATEMALA G
+T 45.00
+11 JUL/10 JUL/12 DOMINOS DISTRITO MIRAFLORGUATE
+MALA GT 60.00
+11 JUL/10 JUL/11 PUMA ENTRE PUENTES GUATEMALA GT 418.60
+11 JUL/11 JUL/12 MCDONALDS (APP) GUATEMALA GT 206.00
+11 JUL/11 JUL/12 DECATLON NO.4 GUATEMALA GT 365.00
+11 JUL/11 JUL/13 PEDIDOSYA PROPINA GUATEMALA GT 11.00
+11 JUL/11 JUL/13 PEDIDOSYA FOOD GUATEMALA GT 159.00
+11 JUL/12 JUL/12 DOMINOS PIZZA MIXCO 114.00
+11 JUL/13 JUL/15 PRICESMART SAN CRISTOBAL GUATEM
+ALA GT 2,968.44
+11 JUL/13 JUL/15 FARMACIA GALENO 323 GUATEMALA
+GT 604.00
+11 JUL/14 JUL/16 PEDIDOSYA PROPINA GUATEMALA GT 7.00
+11 JUL/14 JUL/16 PEDIDOSYA SUPERMERCADO GUATEM
+ALA GT 64.35
+11 JUL/14 JUL/16 CAFE BARISTA CB128 MAJADAGUATEM
+ALA GT 26.00
+11 JUL/15 JUL/17 MCDONALDS 2 14 CALLE ZONAGUATE
+MALA GT 199.00
+11 JUL/15 JUL/16 PANADERIA SAN MARTIN MIXCGUATE
+MALA GT 70.25
+11 JUL/16 JUL/17 PATSY VD GUATEMALA GT 189.00
+11 JUL/16 JUL/17 HALISSON JULISSA CALGUA PLA ANTI
+GUA GUGT 100.00
+11 JUL/16 JUL/18 FARMACIA GALENO 323 GUATEMALA
+GT 251.40
+11 JUL/16 JUL/18 POLLO CAMPERO 122 MIXCO ZGUATE
+MALA GT 356.00
+11 JUL/17 JUL/17 CONFORT CAFE 109.50
+11 JUL/18 JUL/19 Portal Facturas Tigo GUATEMALA GT 140.00
+11 JUL/18 JUL/19 Portal Facturas Tigo GUATEMALA GT 435.00
+11 JUL/18 JUL/20 DOMINOS 14005 MOLINO GUATEMALA
+GT 135.00
+DÉBITO 9,558.55 .00
+ Página 2 de 4
+
+--- Page 3 ---
+@baccredomatic 5511-0222
+Infórmate sobre Educación Financiera en www.baccredomatic.gt
+La tasa efectiva anual equivalente (TAE) de su tarjeta es de 65.38% en quetzales y de 48.58% en USD.
+Nota aclaratoria: si posee límite global o límite compartido entre varias tarjetas, se muestra un cálculo de TAE global.
+Tipo de
+transacción
+Fecha de
+consumo
+Fecha de
+operación Descripción Quetzales Dólares
+Débitos Créditos Débitos Créditos
+11 JUL/18 JUL/20 LIBRERIA SOPHOS FONTABELLGUATE
+MALA GT 175.00
+11 JUL/19 JUL/20 UBER*EATS 338.55
+11 JUL/20 JUL/21 EL KEREL GUATEMALA GT 152.00
+11 JUL/21 JUL/22 KRISPY KREME MAJADAS GUATEMALA
+GT 106.00
+11 JUL/23 JUL/25 CONFORT CAFE GUATEMALA GT 111.00
+11 JUL/24 JUL/25 POLLO BRUJO UTATLAN DV GUATEMA
+LA GT 303.50
+11 JUL/25 JUL/27 CAFE SAUL SANKRIS GUATEMALA GT 300.00
+11 JUL/25 JUL/28 KRISPY KREME MAJADAS GUATEMALA
+GT 62.00
+11 JUL/26 JUL/27 AGENCIAS PH COMCEL GUATEMALA G
+T 161.00
+11 JUL/29 JUL/31 PEDIDOSYA SUPERMERCADO GUATEM
+ALA GT 71.90
+11 JUL/29 JUL/31 PEDIDOSYA PROPINA GUATEMALA GT 12.00
+11 JUL/30 JUL/31 SUPERMERCADOS LA TORRE SAGUATE
+MALA GT 732.06
+DÉBITO 9,558.55 .00
+INTEGRACIÓN DEL PAGO MÍNIMO
+Pago mínimo de la línea de crédito: Monto Q Monto $
+Vigente:
+Amortización del capital: Q 270.74 $ 15.88
+Interes por financiamiento: Q 403.26 $ .12
+Comisiones y otros cargos: Q .00 $ .00
+Vencido:
+Montos vencidos de los pagos mínimos
+de los meses anteriores, si aplica: Q .00 $ .00
+Intereses por mora: Q .00 $ .00
+Pago Mínimo * Q 674.00 $ 16.00
+Extrafinanciamientos
+Nota aclaratoria: cuando únicamente se efectúe el pago mínimo, aunque ya no realice consumo adicional alguno, tome en cuenta
+que el plazo para la cancelación de su deuda se extenderá, debido a que, con dicho pago se cubren primero los intereses,
+comisiones y otro cargos y por último una parte mínima se amortiza a captial.
+ Página 3 de 4
+
+--- Page 4 ---
