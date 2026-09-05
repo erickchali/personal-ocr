@@ -25,5 +25,5 @@ if __name__ == "__main__":
         evaluators=[credit_card_statements_evaluator],
         experiment_prefix="extraction-flash-prompt-update-repetitions",
         max_concurrency=2,
-        num_repetitions=3
+        num_repetitions=3,
     )
